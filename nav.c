@@ -308,7 +308,7 @@ void draw_entries(uint32_t selected_index)
 
 void search_entries(wchar_t* searchstring)
 {
-    char multi_byte[NAME_MAX] = {};
+    static char multi_byte[NAME_MAX] = {};
     wcstombs(multi_byte, searchstring, NAME_MAX);
     for (int i = 0; i < dir_array->entry_count; i++) {
         char* ptr = strcasestr(dir_array->entry_pointers[i], multi_byte);
@@ -332,8 +332,9 @@ void entry_search_loop()
     wchar_t searchstring[NAME_MAX] = {};
     int searchstringindex = 0;
     uint32_t selected_index = 0;
-    while ((c = getwchar())) {
+    while (true) {
         clock_t start_time = clock();
+        wget_wch(win, (wint_t*)&c);
         if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
             if (searchstringindex > 0) {
                 searchstringindex--;
