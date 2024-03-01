@@ -309,7 +309,11 @@ void draw_entries(uint32_t selected_index)
 void search_entries(wchar_t* searchstring)
 {
     static char multi_byte[NAME_MAX] = {};
-    wcstombs(multi_byte, searchstring, NAME_MAX);
+    int written = wcstombs(multi_byte, searchstring, NAME_MAX);
+    if (written == -1)
+        panic("wcstombs error");
+    multi_byte[written] = '\0';
+
     for (int i = 0; i < dir_array->entry_count; i++) {
         char* ptr = strcasestr(dir_array->entry_pointers[i], multi_byte);
         if (ptr) {
@@ -330,21 +334,16 @@ void entry_search_loop()
 {
     wchar_t c = 0;
     wchar_t searchstring[NAME_MAX] = {};
-    int searchstringindex = 0;
+    uint32_t searchstringindex = 0;
     uint32_t selected_index = 0;
     while (true) {
         clock_t start_time = clock();
-        wget_wch(win, (wint_t*)&c);
-        if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
-            if (searchstringindex > 0) {
-                searchstringindex--;
-                searchstring[searchstringindex] = '\0';
-            }
-        }
-        else if (c == KEY_ESCAPE) {
+        get_wch((wint_t*)&c);
+
+        if (c == KEY_ESCAPE) {
             delwin(win);
             endwin();
-            system(user_shell);
+            // system(user_shell);
             exit(EXIT_SUCCESS);
         }
         else if (c == KEY_RESIZE) {
@@ -353,8 +352,8 @@ void entry_search_loop()
             winy = termy * 0.9;
             wresize(win, winy, winx);
         }
-        else if (c == KEY_ENTER) {
-            if (searchstringindex > 0) {
+        else if (c == L'\n') {
+            // if (searchstringindex > 0) {
                 if (selected_index < dir_array->entry_count) {
                     int path_len = strlen(current_path);
                     int entry_len = strlen(dir_array->entry_pointers[selected_index]);
@@ -362,16 +361,22 @@ void entry_search_loop()
                     chdir(current_path);
                     get_dir_contents(current_path);
                 }
-            }
-            else {
+            // }
+            // else {
                 
-            }
+            // }
         }
-        else if (c == '\t') {
+        else if (c == L'\t') {
             if (selected_index != 0xFFFFFFFF) selected_index++;
         }
         else if (c == KEY_BTAB) {
             if (selected_index != 0) selected_index--;
+        }
+        else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
+            if (searchstringindex > 0) {
+                searchstringindex--;
+                searchstring[searchstringindex] = '\0';
+            }
         }
         else {
             searchstring[searchstringindex] = c;
@@ -429,8 +434,8 @@ int main()
 
     win = make_window();   
     init();
-    // get_dir_contents(".");
-    get_dir_contents("/usr/share/man/man3");
+    get_dir_contents(".");
+    // get_dir_contents("/usr/share/man/man3");
     // get_dir_contents("/home/nl/utftest");
 
     // maketestentries();

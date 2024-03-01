@@ -5,9 +5,6 @@ LDFLAGS = -lncursesw
 TARGET = nav
 
 SRC_FILES = $(wildcard *.c)
-OBJ_FILES = $(patsubst %.c,%.o,$(SRC_FILES))
-
-.PHONY: all release debug clean
 
 all: release debug
 
@@ -25,6 +22,3 @@ $(TARGET)_debug: $(OBJ_FILES)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
-
-clean:
-	rm -f $(TARGET) $(TARGET)_debug *.o
