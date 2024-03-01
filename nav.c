@@ -1,6 +1,6 @@
 #include <ncurses.h>
 #include <signal.h>
-#include <ncurses.h>
+#include <curses.h>
 #include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <unistd.h>
+#include <wchar.h>
 #include <wctype.h>
 
 #define MAX_ENTRY_LENGTH 45
@@ -50,7 +51,7 @@ void panic(char* errormsg)
     exit(EXIT_FAILURE);
 }
 
-void init_entry_arrays()
+void init()
 {
     user_shell = getenv("SHELL");
     getcwd(current_path, PATH_MAX);
@@ -305,17 +306,19 @@ void draw_entries(uint32_t selected_index)
     wrefresh(win);
 }
 
-void search_entries(char* searchstring)
+void search_entries(wchar_t* searchstring)
 {
+    char multi_byte[NAME_MAX] = {};
+    wcstombs(multi_byte, searchstring, NAME_MAX);
     for (int i = 0; i < dir_array->entry_count; i++) {
-        char* ptr = strcasestr(dir_array->entry_pointers[i], searchstring);
+        char* ptr = strcasestr(dir_array->entry_pointers[i], multi_byte);
         if (ptr) {
             add_found_ptr(dir_array->entry_pointers[i]);
             found_array->dir_count++;
         }
     }
     for (int i = 0; i < file_array->entry_count; i++) {
-        char* ptr = strcasestr(file_array->entry_pointers[i], searchstring);
+        char* ptr = strcasestr(file_array->entry_pointers[i], multi_byte);
         if (ptr) {
             add_found_ptr(file_array->entry_pointers[i]);
             found_array->file_count++;
@@ -325,11 +328,11 @@ void search_entries(char* searchstring)
 
 void entry_search_loop() 
 {
-    wint_t c = 0;
-    char searchstring[NAME_MAX] = {};
+    wchar_t c = 0;
+    wchar_t searchstring[NAME_MAX] = {};
     int searchstringindex = 0;
     uint32_t selected_index = 0;
-    while ((c = getch())) {
+    while ((c = getwchar())) {
         clock_t start_time = clock();
         if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
             if (searchstringindex > 0) {
@@ -375,7 +378,7 @@ void entry_search_loop()
         }
 
         werase(win);
-        mvwprintw(win, 0, 0, "%.*s", NAME_MAX, searchstring);
+        mvwaddwstr(win, 0, 0, searchstring);
 
         found_array->file_count = 0;
         found_array->dir_count = 0;
@@ -424,9 +427,10 @@ int main()
     init_pair(2, COLOR_WHITE, COLOR_BLUE);
 
     win = make_window();   
-    init_entry_arrays();
+    init();
     // get_dir_contents(".");
     get_dir_contents("/usr/share/man/man3");
+    // get_dir_contents("/home/nl/utftest");
 
     // maketestentries();
     

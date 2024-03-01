@@ -1,1 +1,5 @@
 a.out
+compile_commands.json
+nav
+nav_debug
+nav.o
