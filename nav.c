@@ -2,7 +2,7 @@
 #include <signal.h>
 #include <curses.h>
 #include <time.h>
-#include <dirent.h>
+#include <dirent.h> 
 #include <sys/stat.h>
 #include <string.h>
 #include <limits.h>
@@ -24,7 +24,7 @@ struct entry_array {
     char* entries;
 };
 
-struct found_ptrs {
+struct found_ptrs { 
     int max_size;
     int dir_count;
     int file_count;
@@ -35,6 +35,7 @@ struct entry_array* file_array;
 struct entry_array* dir_array;
 struct found_ptrs* found_array; 
 char current_path[PATH_MAX];
+int current_path_length;
 char* user_shell;
 int longest_entry = 0; 
 WINDOW* win;
@@ -55,6 +56,7 @@ void init()
 {
     user_shell = getenv("SHELL");
     getcwd(current_path, PATH_MAX);
+    current_path_length = strlen(current_path);
 
     file_array = (struct entry_array*)malloc(sizeof(struct entry_array));
     dir_array = (struct entry_array*)malloc(sizeof(struct entry_array));
@@ -181,6 +183,11 @@ void get_dir_contents(char* dirname)
 
     ent = readdir(dir); // the "." directory is omitted
 
+    dir_array->entry_count = 0;
+    file_array->entry_count = 0;
+    found_array->file_count = 0;
+    found_array->dir_count = 0;
+    
     while ((ent = readdir(dir)) != NULL) {
         if (ent->d_type == DT_DIR) {
             add_entry(ent->d_name, dir_array);
@@ -330,6 +337,17 @@ void search_entries(wchar_t* searchstring)
     }
 }
 
+void change_directory(char* dir)
+{
+    if (chdir(dir) == 0) {
+        getcwd(current_path, PATH_MAX);
+        get_dir_contents(current_path);
+    }
+    else {
+        panic("chdir error");
+    }
+}
+
 void entry_search_loop() 
 {
     wchar_t c = 0;
@@ -353,24 +371,54 @@ void entry_search_loop()
             wresize(win, winy, winx);
         }
         else if (c == L'\n') {
-            // if (searchstringindex > 0) {
-                if (selected_index < dir_array->entry_count) {
-                    int path_len = strlen(current_path);
-                    int entry_len = strlen(dir_array->entry_pointers[selected_index]);
-                    strlcpy(current_path + path_len, dir_array->entry_pointers[selected_index], entry_len);
-                    chdir(current_path);
-                    get_dir_contents(current_path);
+            if (searchstringindex == 0) { // if no search was entered, use file and dir arrays
+                if (selected_index < dir_array->entry_count) { // if the selected entry is an directory
+                    change_directory(dir_array->entry_pointers[selected_index]);
+                    searchstringindex = 0;
+                    searchstring[0] = '\0';
                 }
-            // }
-            // else {
-                
-            // }
+                else {
+                    // unfinished: open with text editor
+                }
+            }
+            else { // else use found_array instead
+                if (selected_index < found_array->dir_count) {
+                    change_directory(found_array->found_ptrs[selected_index]);
+                    searchstringindex = 0;
+                    searchstring[0] = '\0';
+                }
+                else {
+                    // unfinished: open with text editor
+                }
+            }
         }
         else if (c == L'\t') {
-            if (selected_index != 0xFFFFFFFF) selected_index++;
+            if (searchstringindex == 0) {
+                if (selected_index != dir_array->entry_count + file_array->entry_count - 1)
+                    selected_index++;
+                else
+                    selected_index = 0;
+            }
+            else {
+                if (selected_index != found_array->dir_count + found_array->file_count - 1)
+                    selected_index++;
+                else
+                    selected_index = 0;
+            }
         }
         else if (c == KEY_BTAB) {
-            if (selected_index != 0) selected_index--;
+            if (searchstringindex == 0) {
+                if (selected_index != 0) 
+                    selected_index--;
+                else
+                    selected_index = dir_array->entry_count + file_array->entry_count - 1;
+            }
+            else {
+                if (selected_index != 0) 
+                    selected_index--;
+                else
+                    selected_index = found_array->dir_count + found_array->file_count - 1;
+            }
         }
         else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
             if (searchstringindex > 0) {
@@ -428,15 +476,16 @@ int main()
     keypad(stdscr, TRUE);
     start_color();
     use_default_colors();
-    init_color(COLOR_BLUE, 100, 100, 600);
+    init_color(COLOR_BLUE, 2, 56, 173);
     init_pair(1, COLOR_BLUE, COLOR_WHITE);
     init_pair(2, COLOR_WHITE, COLOR_BLUE);
 
     win = make_window();   
     init();
-    get_dir_contents(".");
+    // get_dir_contents(".");
     // get_dir_contents("/usr/share/man/man3");
     // get_dir_contents("/home/nl/utftest");
+    get_dir_contents(current_path);
 
     // maketestentries();
     
