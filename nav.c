@@ -379,6 +379,10 @@ void entry_search_loop()
     uint32_t selected_index = 0;
     struct entry_ptrs* current_ptrs = &all_ptrs;
     
+    draw_found_entries(0, current_ptrs);
+    wmove(win, 0, 0);
+    refresh();
+    wrefresh(win);
     while (true) {
         clock_t start_time = clock();
         get_wch((wint_t*)&c);
@@ -490,14 +494,11 @@ int main()
 
     // maketestentries();
     
-    draw_entries(0);
     wmove(win, 0, 0);
 
     clock_t end_time = clock();
     double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
     mvwprintw(win, 2, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000);
-    wmove(win, 0, 0);
-    wrefresh(win);
 
     entry_search_loop();
 
