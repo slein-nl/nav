@@ -181,7 +181,7 @@ void get_dir_contents(char* dirname)
         panic("opendir() error");
     }
 
-    ent = readdir(dir); // the "." directory is omitted
+    // ent = readdir(dir); // the "." directory is omitted
 
     dir_array->entry_count = 0;
     file_array->entry_count = 0;
@@ -348,12 +348,26 @@ void change_directory(char* dir)
     }
 }
 
+void reset_found_array()
+{
+    while ((dir_array->entry_count * sizeof(char**)) + (file_array->entry_count * sizeof(char**)) > found_array->max_size) {
+        extend_found_array();
+    }
+    memcpy(found_array->found_ptrs, dir_array->entry_pointers, dir_array->entry_count * sizeof(char**));
+    memcpy(found_array->found_ptrs + dir_array->entry_count, file_array->entry_pointers, file_array->entry_count * sizeof(char*));
+    found_array->file_count = file_array->entry_count;
+    found_array->dir_count = dir_array->entry_count;
+}
+
 void entry_search_loop() 
 {
     wchar_t c = 0;
     wchar_t searchstring[NAME_MAX] = {};
     uint32_t searchstringindex = 0;
     uint32_t selected_index = 0;
+
+    reset_found_array();
+
     while (true) {
         clock_t start_time = clock();
         get_wch((wint_t*)&c);
@@ -371,64 +385,39 @@ void entry_search_loop()
             wresize(win, winy, winx);
         }
         else if (c == L'\n') {
-            if (searchstringindex == 0) { // if no search was entered, use file and dir arrays
-                if (selected_index < dir_array->entry_count) { // if the selected entry is an directory
-                    change_directory(dir_array->entry_pointers[selected_index]);
-                    searchstringindex = 0;
-                    searchstring[0] = '\0';
-                }
-                else {
-                    // unfinished: open with text editor
-                }
+            if (selected_index < found_array->dir_count) {
+                change_directory(found_array->found_ptrs[selected_index]);
+                searchstringindex = 0;
+                searchstring[0] = '\0';
             }
-            else { // else use found_array instead
-                if (selected_index < found_array->dir_count) {
-                    change_directory(found_array->found_ptrs[selected_index]);
-                    searchstringindex = 0;
-                    searchstring[0] = '\0';
-                }
-                else {
-                    // unfinished: open with text editor
-                }
+            else {
+                // unfinished: open with text editor
             }
         }
         else if (c == L'\t') {
-            if (searchstringindex == 0) {
-                if (selected_index != dir_array->entry_count + file_array->entry_count - 1)
-                    selected_index++;
-                else
-                    selected_index = 0;
-            }
-            else {
-                if (selected_index != found_array->dir_count + found_array->file_count - 1)
-                    selected_index++;
-                else
-                    selected_index = 0;
-            }
+            if (selected_index != found_array->dir_count + found_array->file_count - 1)
+                selected_index++;
+            else
+                selected_index = 0;
         }
         else if (c == KEY_BTAB) {
-            if (searchstringindex == 0) {
-                if (selected_index != 0) 
-                    selected_index--;
-                else
-                    selected_index = dir_array->entry_count + file_array->entry_count - 1;
-            }
-            else {
-                if (selected_index != 0) 
-                    selected_index--;
-                else
-                    selected_index = found_array->dir_count + found_array->file_count - 1;
-            }
+            if (selected_index != 0) 
+                selected_index--;
+            else
+                selected_index = found_array->dir_count + found_array->file_count - 1;
         }
         else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
             if (searchstringindex > 0) {
                 searchstringindex--;
                 searchstring[searchstringindex] = '\0';
+                selected_index = 0;
             }
         }
         else {
             searchstring[searchstringindex] = c;
+            searchstring[searchstringindex + 1] = '\0';
             searchstringindex++;
+            selected_index = 0;
         }
 
         werase(win);
@@ -443,7 +432,10 @@ void entry_search_loop()
                 selected_index = 0;
             draw_found_entries(selected_index);
         }
-        else draw_entries(selected_index);
+        else {
+            draw_entries(selected_index);  
+            reset_found_array();
+        } 
         
         wmove(win, 0, searchstringindex);
         refresh();
