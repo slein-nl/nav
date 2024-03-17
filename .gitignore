@@ -4,3 +4,6 @@ nav
 nav_debug
 nav.o
 .cache
+perf.data
+perf.data.old
+nav.s
