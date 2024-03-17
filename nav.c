@@ -1,5 +1,5 @@
 #include <signal.h>
-#include <curses.h>
+#include <ncurses.h>
 #include <time.h>
 #include <dirent.h> 
 #include <sys/stat.h>
@@ -186,6 +186,8 @@ void get_dir_contents(char* dirname)
     found_ptrs.dir_count = 0;
     
     while ((ent = readdir(dir)) != NULL) {
+        if (!strcmp(ent->d_name, "."))
+            continue;
         if (ent->d_type == DT_DIR) {
             add_entry(ent->d_name, &dir_array);
         } 
@@ -222,16 +224,20 @@ WINDOW* make_window()
     return window;
 }
 
-void draw_found_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
+void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
 {
+    int column_count = winx / longest_entry;
+    if (column_count <= 0) 
+        column_count = 1;
+    int entries_per_page = (column_count * (winy - 3));
+    int current_page = selected_index / entries_per_page;
+    int start_index = current_page * entries_per_page;
+    int end_index = start_index + entries_per_page;
+
+    int row = 0;
     int x = 0;
     int y = 3;
-    int column_count = winx / longest_entry;
-    if (column_count <= 0) {
-        column_count = 1;
-    }
-    int entries_per_row = 0;
-    for (int i = 0; i < ptrs->dir_count; i++) {
+    for (int i = start_index; i < end_index; i++) {
         int color = 2;
         if (selected_index == i) color--;
         wattron(win, COLOR_PAIR(color));
@@ -243,106 +249,34 @@ void draw_found_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
         x += longest_entry + 1;
         wattroff(win, COLOR_PAIR(color));
 
-        entries_per_row++;
-        if (entries_per_row > column_count - 1) {
+        row++;
+        if (row > column_count - 1) {
             y++;
             x = 0;
-            entries_per_row = 0;
+            row = 0;
         }
     }
-    for (int i = ptrs->dir_count; i < ptrs->file_count + ptrs->dir_count; i++) {
-        int color = 2;
-        if (selected_index == i ) color--;
-        wattron(win, COLOR_PAIR(color));
-        mvwprintw(win, y, x, "%.*s", longest_entry, ptrs->ptrs[i]);
-        int len = strlen(ptrs->ptrs[i]);
-        if (len > MAX_ENTRY_LENGTH) {
-            mvwprintw(win, y, x + longest_entry - 3, "...");
-        }
-        x += longest_entry + 1;
-        wattroff(win, COLOR_PAIR(color));
-
-        entries_per_row++;
-        if (entries_per_row > column_count - 1) {
-            y++;
-            x = 0;
-            entries_per_row = 0;
-        }
-    }
-}
-
-void draw_entries(uint32_t selected_index) 
-{
-    int x = 0;
-    int y = 3;
-    int column_count = winx / longest_entry;
-    if (column_count <= 0) {
-        column_count = 1;
-    }
-    int entries_per_row = 0;
-    for (int i = 0; i < dir_array.entry_count; i++) {
-        int color = 2;
-        if (selected_index == i) color--;
-        wattron(win, COLOR_PAIR(color));
-        mvwprintw(win, y, x, "%.*s", longest_entry, dir_array.entry_pointers[i]);
-        int len = strlen(dir_array.entry_pointers[i]);
-        if (len > MAX_ENTRY_LENGTH) {
-            mvwprintw(win, y, x + longest_entry - 3, "...");
-        }
-        x += longest_entry + 1;
-        wattroff(win, COLOR_PAIR(color));
-
-        entries_per_row++;
-        if (entries_per_row > column_count - 1) {
-            y++;
-            x = 0;
-            entries_per_row = 0;
-        }
-    }
-    for (int i = 0; i < file_array.entry_count; i++) {
-        int color = 2;
-        if (selected_index == i + dir_array.entry_count) color--;
-        wattron(win, COLOR_PAIR(color));
-        mvwprintw(win, y, x, "%.*s", longest_entry, file_array.entry_pointers[i]);
-        int len = strlen(file_array.entry_pointers[i]);
-        if (len > MAX_ENTRY_LENGTH) {
-            mvwprintw(win, y, x + longest_entry - 3, "...");
-        }
-        x += longest_entry + 1;
-        wattroff(win, COLOR_PAIR(color));
-
-        entries_per_row++;
-        if (entries_per_row > column_count - 1) {
-            y++;
-            x = 0;
-            entries_per_row = 0;
-        }
-    }
-    wmove(win, 0, 0);
-    refresh();
-    wrefresh(win);
 }
 
 void search_entries(wchar_t* searchstring)
 {
-    found_ptrs.file_count = 0;
-    found_ptrs.dir_count = 0;
-    static char multi_byte[NAME_MAX] = {};
+    static char multi_byte[NAME_MAX];
     int written = wcstombs(multi_byte, searchstring, NAME_MAX);
     if (written == -1)
         panic("wcstombs error");
-    multi_byte[written] = '\0';
 
+    found_ptrs.file_count = 0;
+    found_ptrs.dir_count = 0;
     for (int i = 0; i < dir_array.entry_count; i++) {
-        char* ptr = strcasestr(dir_array.entry_pointers[i], multi_byte);
-        if (ptr) {
+        char* found = strcasestr(dir_array.entry_pointers[i], multi_byte);
+        if (found) {
             add_found_ptr(dir_array.entry_pointers[i]);
             found_ptrs.dir_count++;
         }
     }
     for (int i = 0; i < file_array.entry_count; i++) {
-        char* ptr = strcasestr(file_array.entry_pointers[i], multi_byte);
-        if (ptr) {
+        char* found = strcasestr(file_array.entry_pointers[i], multi_byte);
+        if (found) {
             add_found_ptr(file_array.entry_pointers[i]);
             found_ptrs.file_count++;
         }
@@ -360,29 +294,19 @@ void change_directory(char* dir)
     }
 }
 
-void reset_found_array()
-{
-    while ((dir_array.entry_count * sizeof(char**)) + (file_array.entry_count * sizeof(char**)) > found_ptrs.max_size) {
-        extend_ptrs_array(&found_ptrs);
-    }
-    memcpy(found_ptrs.ptrs, dir_array.entry_pointers, dir_array.entry_count * sizeof(char**));
-    memcpy(found_ptrs.ptrs + dir_array.entry_count, file_array.entry_pointers, file_array.entry_count * sizeof(char*));
-    found_ptrs.file_count = file_array.entry_count;
-    found_ptrs.dir_count = dir_array.entry_count;
-}
-
 void entry_search_loop() 
 {
     wchar_t c = 0;
     wchar_t searchstring[NAME_MAX] = {};
     uint32_t searchstringindex = 0;
-    uint32_t selected_index = 0;
+    uint32_t selected_index = 1;
     struct entry_ptrs* current_ptrs = &all_ptrs;
     
-    draw_found_entries(0, current_ptrs);
+    draw_entries(1, current_ptrs);
     wmove(win, 0, 0);
     refresh();
     wrefresh(win);
+
     while (true) {
         clock_t start_time = clock();
         get_wch((wint_t*)&c);
@@ -443,11 +367,11 @@ void entry_search_loop()
             search_entries(searchstring);
             if (selected_index > found_ptrs.dir_count + found_ptrs.file_count)
                 selected_index = 0;
-            draw_found_entries(selected_index, current_ptrs);
+            draw_entries(selected_index, current_ptrs);
         }
         else {
             current_ptrs = &all_ptrs;
-            draw_found_entries(selected_index, current_ptrs);  
+            draw_entries(selected_index, current_ptrs);  
         } 
         
         wmove(win, 0, searchstringindex);
@@ -488,9 +412,9 @@ int main()
     win = make_window();   
     init();
     // get_dir_contents(".");
-    // get_dir_contents("/usr/share/man/man3");
+    get_dir_contents("/usr/share/man/man3");
     // get_dir_contents("/home/nl/utftest");
-    get_dir_contents(current_path);
+    // get_dir_contents(current_path);
 
     // maketestentries();
     
