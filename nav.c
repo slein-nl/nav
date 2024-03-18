@@ -232,7 +232,11 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
     int entries_per_page = (column_count * (winy - 3));
     int current_page = selected_index / entries_per_page;
     int start_index = current_page * entries_per_page;
-    int end_index = start_index + entries_per_page;
+    int end_index;
+    if ((ptrs->dir_count + ptrs->file_count) - start_index < entries_per_page) // if the rest of the entries can fit in a page
+        end_index = ptrs->dir_count + ptrs->file_count; // draw the rest
+    else 
+        end_index = start_index + entries_per_page; // draw a page's worth
 
     int row = 0;
     int x = 0;
@@ -412,8 +416,9 @@ int main()
     win = make_window();   
     init();
     // get_dir_contents(".");
-    get_dir_contents("/usr/share/man/man3");
+    // get_dir_contents("/usr/share/man/man3");
     // get_dir_contents("/home/nl/utftest");
+    get_dir_contents("/home/nl/");
     // get_dir_contents(current_path);
 
     // maketestentries();
