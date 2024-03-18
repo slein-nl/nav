@@ -184,6 +184,7 @@ void get_dir_contents(char* dirname)
     file_array.entry_count = 0;
     found_ptrs.file_count = 0;
     found_ptrs.dir_count = 0;
+    longest_entry = 0;
     
     while ((ent = readdir(dir)) != NULL) {
         if (!strcmp(ent->d_name, "."))
@@ -224,6 +225,14 @@ WINDOW* make_window()
     return window;
 }
 
+int count_utf8_code_points(char* s) {
+    int count = 0;
+    while (*s) {
+        count += (*s++ & 0xC0) != 0x80;
+    }
+    return count;
+}
+
 void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
 {
     int column_count = winx / longest_entry;
@@ -233,26 +242,31 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
     int current_page = selected_index / entries_per_page;
     int start_index = current_page * entries_per_page;
     int end_index;
-    if ((ptrs->dir_count + ptrs->file_count) - start_index < entries_per_page) // if the rest of the entries can fit in a page
-        end_index = ptrs->dir_count + ptrs->file_count; // draw the rest
+    if (ptrs->dir_count + ptrs->file_count - start_index < entries_per_page) 
+        end_index = ptrs->dir_count + ptrs->file_count; 
     else 
-        end_index = start_index + entries_per_page; // draw a page's worth
+        end_index = start_index + entries_per_page; 
 
     int row = 0;
     int x = 0;
     int y = 3;
     for (int i = start_index; i < end_index; i++) {
-        int color = 2;
-        if (selected_index == i) color--;
+        int color = 0;
+        if (selected_index == i) 
+            color = 1;
+        else if (i < ptrs->dir_count) 
+            color = 2;
+
         wattron(win, COLOR_PAIR(color));
         mvwprintw(win, y, x, "%.*s", longest_entry, ptrs->ptrs[i]);
-        int len = strlen(ptrs->ptrs[i]);
-        if (len > MAX_ENTRY_LENGTH) {
-            mvwprintw(win, y, x + longest_entry - 3, "...");
-        }
-        x += longest_entry + 1;
+        int len = count_utf8_code_points(ptrs->ptrs[i]);
+        if (len > MAX_ENTRY_LENGTH) 
+            len = MAX_ENTRY_LENGTH;
+        if (i < ptrs->dir_count) 
+            mvwprintw(win, y, x + len, "/");
         wattroff(win, COLOR_PAIR(color));
 
+        x += longest_entry + 2;
         row++;
         if (row > column_count - 1) {
             y++;
@@ -409,17 +423,18 @@ int main()
     keypad(stdscr, TRUE);
     start_color();
     use_default_colors();
-    init_color(COLOR_BLUE, 2, 56, 173);
-    init_pair(1, COLOR_BLUE, COLOR_WHITE);
-    init_pair(2, COLOR_WHITE, COLOR_BLUE);
+    init_color(COLOR_BLUE, 500, 700, 999);
+    init_pair(1, COLOR_BLACK, COLOR_WHITE);
+    init_pair(2, COLOR_BLUE, -1);
 
     win = make_window();   
     init();
     // get_dir_contents(".");
-    // get_dir_contents("/usr/share/man/man3");
+    get_dir_contents("/usr/share/man/man3");
     // get_dir_contents("/home/nl/utftest");
-    get_dir_contents("/home/nl/");
+    // get_dir_contents("/home/nl/");
     // get_dir_contents(current_path);
+    // get_dir_contents("/");
 
     // maketestentries();
     
