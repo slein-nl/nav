@@ -359,6 +359,8 @@ void entry_search_loop()
         else if (c == L'\n') {
             if (selected_index < current_ptrs->dir_count) {
                 change_directory(current_ptrs->ptrs[selected_index]);
+                if (dir_array.entry_count + file_array.entry_count < selected_index)
+                    selected_index = 0;
                 searchstringindex = 0;
                 searchstring[0] = '\0';
             }
@@ -438,7 +440,8 @@ int main()
     keypad(stdscr, TRUE);
     start_color();
     use_default_colors();
-    init_color(COLOR_BLUE, 500, 700, 999);
+    init_color(COLOR_BLUE, 236, 568, 936);
+    // init_color(COLOR_BLUE, 256, 588, 946);
     init_pair(1, COLOR_BLACK, COLOR_WHITE);
     init_pair(2, COLOR_BLUE, -1);
 
