@@ -97,6 +97,15 @@ int compare_entries(const void* a, const void* b)
     return strcmp(entry_a, entry_b);
 }
 
+int count_utf8_code_points(char* s) {
+    int count = 0;
+    while (*s) {
+        count += (*s & 0xC0) != 0x80;
+        s++;
+    }
+    return count;
+}
+
 void extend_entry_array(struct entry_array* arr) 
 {
     char* realloced = (char*)realloc(arr->entries, arr->max_size * 2);
@@ -151,8 +160,10 @@ void add_found_ptr(char* ptr)
 
 void add_entry(char* entry, struct entry_array* arr) 
 {
-    int len = strlen(entry);
-    if (len > longest_entry && len <= MAX_ENTRY_LENGTH) longest_entry = len;
+    int len = count_utf8_code_points(entry);
+    int size = strlen(entry);
+    if (len > longest_entry && len <= MAX_ENTRY_LENGTH) 
+        longest_entry = len;
     while ((arr->entries_size + len + 1) > arr->max_size) {
         extend_entry_array(arr);
     }
@@ -160,9 +171,9 @@ void add_entry(char* entry, struct entry_array* arr)
         extend_entry_array_pointers(arr);
     }
     char* array_head = arr->entries + arr->entries_size;
-    memcpy(array_head, entry, len);
-    array_head[len] = '\0';
-    arr->entries_size += len + 1;
+    memcpy(array_head, entry, size);
+    array_head[size] = '\0';
+    arr->entries_size += size + 1;
     arr->entry_pointers[arr->entry_count] = array_head;
     arr->entry_count++;
 }
@@ -225,14 +236,6 @@ WINDOW* make_window()
     return window;
 }
 
-int count_utf8_code_points(char* s) {
-    int count = 0;
-    while (*s) {
-        count += (*s++ & 0xC0) != 0x80;
-    }
-    return count;
-}
-
 void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
 {
     int column_count = winx / longest_entry;
@@ -257,13 +260,25 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
         else if (i < ptrs->dir_count) 
             color = 2;
 
+        static wchar_t wstr[NAME_MAX * 4];
+        int written = mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * 4);
         wattron(win, COLOR_PAIR(color));
-        mvwprintw(win, y, x, "%.*s", longest_entry, ptrs->ptrs[i]);
-        int len = count_utf8_code_points(ptrs->ptrs[i]);
-        if (len > MAX_ENTRY_LENGTH) 
-            len = MAX_ENTRY_LENGTH;
-        if (i < ptrs->dir_count) 
-            mvwprintw(win, y, x + len, "/");
+        int len = wcslen(wstr);
+        if (len > longest_entry) {
+            len = longest_entry;
+            wstr[len - 1] = L'.';
+            wstr[len - 2] = L'.';
+            wstr[len - 3] = L'.';
+        }
+        mvwaddnwstr(win, y, x, wstr, len);
+
+        if (i < ptrs->dir_count) {
+            wmove(win, y, x + len);
+            cchar_t wch;
+            setcchar(&wch, L"/", 0, 0, NULL);
+            wadd_wch(win, &wch);
+        } 
+
         wattroff(win, COLOR_PAIR(color));
 
         x += longest_entry + 2;
@@ -278,8 +293,8 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
 
 void search_entries(wchar_t* searchstring)
 {
-    static char multi_byte[NAME_MAX];
-    int written = wcstombs(multi_byte, searchstring, NAME_MAX);
+    static char multi_byte[NAME_MAX * 4];
+    int written = wcstombs(multi_byte, searchstring, NAME_MAX * 4);
     if (written == -1)
         panic("wcstombs error");
 
@@ -430,8 +445,8 @@ int main()
     win = make_window();   
     init();
     // get_dir_contents(".");
-    get_dir_contents("/usr/share/man/man3");
-    // get_dir_contents("/home/nl/utftest");
+    // get_dir_contents("/usr/share/man/man3");
+    get_dir_contents("/home/nl/utftest");
     // get_dir_contents("/home/nl/");
     // get_dir_contents(current_path);
     // get_dir_contents("/");
