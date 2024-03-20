@@ -1,9 +1,11 @@
+#include <linux/limits.h>
 #include <signal.h>
 #include <ncurses.h>
 #include <time.h>
 #include <dirent.h> 
 #include <sys/stat.h>
 #include <string.h>
+#include <wait.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <locale.h>
@@ -12,6 +14,7 @@
 #include <wctype.h>
 
 #define MAX_ENTRY_LENGTH 45
+#define INTER_COLUMN_SPACING 2
 #define KEY_ESCAPE 27
 
 struct entry_array {
@@ -34,9 +37,10 @@ struct entry_array file_array;
 struct entry_array dir_array;
 struct entry_ptrs found_ptrs; 
 struct entry_ptrs all_ptrs; 
-char current_path[PATH_MAX];
+char current_path[PATH_MAX * 4];
 int current_path_length;
 char* user_shell;
+char* user_editor;
 int longest_entry = 0; 
 WINDOW* win;
 int termx;
@@ -55,6 +59,7 @@ void panic(char* errormsg)
 void init()
 {
     user_shell = getenv("SHELL");
+    user_editor = getenv("EDITOR");
     getcwd(current_path, PATH_MAX);
     current_path_length = strlen(current_path);
     
@@ -236,6 +241,23 @@ WINDOW* make_window()
     return window;
 }
 
+void open_editor(char* s, int len) {
+    int status;
+    int pid = vfork();
+    if (pid > 0) {
+        waitpid(pid, &status, 0);
+        endwin();
+        kill(getpid(), SIGWINCH);
+    }
+    else if (pid == 0) {
+        char *args[] = {user_editor, s, NULL};
+        execvp(args[0], args);
+    }
+    else {
+        panic("fork error");
+    }
+}
+
 void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
 {
     int column_count = winx / longest_entry;
@@ -254,15 +276,8 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
     int x = 0;
     int y = 3;
     for (int i = start_index; i < end_index; i++) {
-        int color = 0;
-        if (selected_index == i) 
-            color = 1;
-        else if (i < ptrs->dir_count) 
-            color = 2;
-
-        static wchar_t wstr[NAME_MAX * 4];
-        int written = mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * 4);
-        wattron(win, COLOR_PAIR(color));
+        static wchar_t wstr[NAME_MAX * 4 + 1];
+        mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * 4);
         int len = wcslen(wstr);
         if (len > longest_entry) {
             len = longest_entry;
@@ -270,18 +285,22 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
             wstr[len - 2] = L'.';
             wstr[len - 3] = L'.';
         }
-        mvwaddnwstr(win, y, x, wstr, len);
-
+        int color = 0;
+        if (selected_index == i) {
+            color = 1;
+        }
         if (i < ptrs->dir_count) {
-            wmove(win, y, x + len);
-            cchar_t wch;
-            setcchar(&wch, L"/", 0, 0, NULL);
-            wadd_wch(win, &wch);
-        } 
+            if (color == 0) color = 2;
+            wstr[len] = L'/';
+            wstr[len + 1] = L'\0';
+            len++;
+        }
+        wattron(win, COLOR_PAIR(color));
+        mvwaddnwstr(win, y, x, wstr, len);
 
         wattroff(win, COLOR_PAIR(color));
 
-        x += longest_entry + 2;
+        x += longest_entry + INTER_COLUMN_SPACING;
         row++;
         if (row > column_count - 1) {
             y++;
@@ -359,13 +378,13 @@ void entry_search_loop()
         else if (c == L'\n') {
             if (selected_index < current_ptrs->dir_count) {
                 change_directory(current_ptrs->ptrs[selected_index]);
-                if (dir_array.entry_count + file_array.entry_count < selected_index)
+                if (dir_array.entry_count + file_array.entry_count <= selected_index)
                     selected_index = 0;
                 searchstringindex = 0;
                 searchstring[0] = '\0';
             }
             else {
-                // unfinished: open with text editor
+                open_editor(current_ptrs->ptrs[selected_index], searchstringindex);
             }
         }
         else if (c == L'\t') {
@@ -449,8 +468,9 @@ int main()
     init();
     // get_dir_contents(".");
     // get_dir_contents("/usr/share/man/man3");
-    get_dir_contents("/home/nl/utftest");
+    // get_dir_contents("/home/nl/utftest");
     // get_dir_contents("/home/nl/");
+    get_dir_contents("/home/nl/code");
     // get_dir_contents(current_path);
     // get_dir_contents("/");
 
@@ -467,7 +487,6 @@ int main()
     // getch();
     delwin(win);
     endwin();
-
 
     return 0;
 }
