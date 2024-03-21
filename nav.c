@@ -1,6 +1,7 @@
 #include <linux/limits.h>
 #include <signal.h>
 #include <ncurses.h>
+#include <strings.h>
 #include <time.h>
 #include <dirent.h> 
 #include <sys/stat.h>
@@ -99,7 +100,7 @@ int compare_entries(const void* a, const void* b)
 {
     const char* entry_a = *(const char**)a;
     const char* entry_b = *(const char**)b;
-    return strcmp(entry_a, entry_b);
+    return strcasecmp(entry_a, entry_b);
 }
 
 int count_utf8_code_points(char* s) {
@@ -194,8 +195,6 @@ void get_dir_contents(char* dirname)
         panic("opendir() error");
     }
 
-    // ent = readdir(dir); // the "." directory is omitted
-
     dir_array.entry_count = 0;
     file_array.entry_count = 0;
     found_ptrs.file_count = 0;
@@ -260,7 +259,7 @@ void open_editor(char* s, int len) {
 
 void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
 {
-    int column_count = winx / longest_entry;
+    int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
     if (column_count <= 0) 
         column_count = 1;
     int entries_per_page = (column_count * (winy - 3));
@@ -400,10 +399,22 @@ void entry_search_loop()
                 selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
         }
         else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
-            if (searchstringindex > 0) {
-                searchstringindex--;
-                searchstring[searchstringindex] = '\0';
-                selected_index = 0;
+            if (c == ('\b' & 0x1F)) { // ctrl+backspace
+                if (searchstringindex > 0) {
+                    int prev = searchstring[--searchstringindex];
+                    searchstring[searchstringindex] = '\0';
+                    while ((searchstringindex > 0 && searchstring[searchstringindex - 1] != ' ')
+                        || (searchstringindex > 0 && searchstring[searchstringindex - 1] == ' ' && prev == ' ')) {
+                        prev = searchstring[searchstringindex - 1];
+                        searchstring[--searchstringindex] = '\0';
+                    }
+                }
+            } 
+            else {
+                if (searchstringindex > 0) {
+                    searchstring[--searchstringindex] = '\0';
+                    selected_index = 0;
+                }
             }
         }
         else {
