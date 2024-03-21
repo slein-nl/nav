@@ -13,6 +13,8 @@
 #include <unistd.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <sys/syscall.h>
+#include <fcntl.h>
 
 #define MAX_ENTRY_LENGTH 45
 #define INTER_COLUMN_SPACING 2
@@ -456,7 +458,7 @@ void sigint_handler(int sig)
     panic("Ctrl + C pressed");
 }
 
-int main() 
+int main(int argc, char *argv[]) 
 {
     clock_t start_time = clock();
 
@@ -477,15 +479,21 @@ int main()
 
     win = make_window();   
     init();
-    // get_dir_contents(".");
-    // get_dir_contents("/usr/share/man/man3");
-    // get_dir_contents("/home/nl/utftest");
-    // get_dir_contents("/home/nl/");
-    get_dir_contents("/home/nl/code");
-    // get_dir_contents(current_path);
-    // get_dir_contents("/");
 
-    // maketestentries();
+    if (argc > 1) {
+        for (int i = 1; i < argc; i++) {
+            if (argv[i][0] == '-') {
+                // handle option
+            }
+            else {
+                get_dir_contents(argv[i]);
+                break;
+            }
+        }
+    }
+    else {
+        get_dir_contents(".");
+    }
     
     wmove(win, 0, 0);
 
