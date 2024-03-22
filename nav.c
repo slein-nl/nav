@@ -1,6 +1,7 @@
 #include <linux/limits.h>
 #include <signal.h>
 #include <ncurses.h>
+#include <stdio.h>
 #include <strings.h>
 #include <time.h>
 #include <dirent.h> 
@@ -63,9 +64,7 @@ void init()
 {
     user_shell = getenv("SHELL");
     user_editor = getenv("EDITOR");
-    getcwd(current_path, PATH_MAX);
-    current_path_length = strlen(current_path);
-    
+
     file_array.entry_count = 0;
     file_array.max_size = 512;
     file_array.max_ptrs_size = 512;
@@ -352,10 +351,13 @@ void entry_search_loop()
     wchar_t c = 0;
     wchar_t searchstring[NAME_MAX] = {};
     uint32_t searchstringindex = 0;
+    uint32_t searchstringlength = 0;
     uint32_t selected_index = 1;
     struct entry_ptrs* current_ptrs = &all_ptrs;
     
+    get_dir_contents(current_path);
     draw_entries(1, current_ptrs);
+    mvwaddstr(win, 2, 0, current_path);
     wmove(win, 0, 0);
     refresh();
     wrefresh(win);
@@ -376,7 +378,19 @@ void entry_search_loop()
             winy = termy * 0.9;
             wresize(win, winy, winx);
         }
-        else if (c == L'\n') {
+        else if (c == KEY_UP) {
+            change_directory("..");
+        }
+        else if (c == KEY_LEFT) {
+            
+        }
+        else if (c == KEY_HOME) {
+            selected_index = 0;
+        }
+        else if (c == KEY_END) {
+            selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
+        }
+        else if (c == L'\n' || c == KEY_DOWN) {
             if (selected_index < current_ptrs->dir_count) {
                 change_directory(current_ptrs->ptrs[selected_index]);
                 if (dir_array.entry_count + file_array.entry_count <= selected_index)
@@ -423,6 +437,7 @@ void entry_search_loop()
             searchstring[searchstringindex] = c;
             searchstring[searchstringindex + 1] = '\0';
             searchstringindex++;
+            searchstringlength++;
             selected_index = 0;
         }
 
@@ -441,13 +456,14 @@ void entry_search_loop()
             draw_entries(selected_index, current_ptrs);  
         } 
         
+        mvwaddstr(win, 2, 0, current_path);
         wmove(win, 0, searchstringindex);
         refresh();
         wrefresh(win);
 
         clock_t end_time = clock();
         double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
-        mvwprintw(win, 2, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000);
+        mvwprintw(win, 1, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000);
         wmove(win, 0, searchstringindex);
         wrefresh(win);
     }
@@ -486,20 +502,22 @@ int main(int argc, char *argv[])
                 // handle option
             }
             else {
-                get_dir_contents(argv[i]);
+                change_directory(argv[i]);
+                getcwd(current_path, PATH_MAX);
                 break;
             }
         }
     }
     else {
-        get_dir_contents(".");
+        getcwd(current_path, PATH_MAX);
+        current_path_length = strlen(current_path);
     }
     
     wmove(win, 0, 0);
 
     clock_t end_time = clock();
     double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
-    mvwprintw(win, 2, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000);
+    mvwprintw(win, 1, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000);
 
     entry_search_loop();
 
