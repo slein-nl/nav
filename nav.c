@@ -107,7 +107,7 @@ int compare_entries(const void* a, const void* b)
 int count_utf8_code_points(char* s) {
     int count = 0;
     while (*s) {
-        count += (*s & 0xC0) != 0x80;
+        count += (*s & 0xC0) != 0x80; // add if byte is neither continuation byte nor single character byte
         s++;
     }
     return count;
@@ -189,7 +189,7 @@ void get_dir_contents(char* dirname)
 {
     DIR *dir;
     struct dirent *ent;
-    struct stat filestat;
+    struct stat stat_buffer;
 
     dir = opendir(dirname);
     if (dir == NULL) {
@@ -207,6 +207,21 @@ void get_dir_contents(char* dirname)
             continue;
         if (ent->d_type == DT_DIR) {
             add_entry(ent->d_name, &dir_array);
+        } 
+        else if (ent->d_type == DT_LNK) {
+            int len = strlen(ent->d_name);
+            current_path[current_path_length] = '/';
+            memcpy(&current_path[current_path_length + 1], ent->d_name, len); 
+            current_path[current_path_length + 1 + len] = '\0';
+            if (stat(current_path, &stat_buffer) != 0)
+                panic("stat error");
+            memset(&current_path[current_path_length], '\0', len);
+            if (S_ISDIR(stat_buffer.st_mode)) {
+                add_entry(ent->d_name, &dir_array);
+            }
+            else {
+                add_entry(ent->d_name, &file_array);
+            }
         } 
         else {
             add_entry(ent->d_name, &file_array);
@@ -339,6 +354,7 @@ void change_directory(char* dir)
 {
     if (chdir(dir) == 0) {
         getcwd(current_path, PATH_MAX);
+        current_path_length = strlen(current_path);
         get_dir_contents(current_path);
     }
     else {
@@ -503,7 +519,6 @@ int main(int argc, char *argv[])
             }
             else {
                 change_directory(argv[i]);
-                getcwd(current_path, PATH_MAX);
                 break;
             }
         }
