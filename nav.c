@@ -43,6 +43,7 @@ struct entry_ptrs found_ptrs;
 struct entry_ptrs all_ptrs; 
 char current_path[PATH_MAX * 4];
 int current_path_length;
+int entries_per_page;
 char* user_shell;
 char* user_editor;
 int longest_entry = 0; 
@@ -213,9 +214,12 @@ void get_dir_contents(char* dirname)
             current_path[current_path_length] = '/';
             memcpy(&current_path[current_path_length + 1], ent->d_name, len); 
             current_path[current_path_length + 1 + len] = '\0';
-            if (stat(current_path, &stat_buffer) != 0)
-                panic("stat error");
-            memset(&current_path[current_path_length], '\0', len);
+            if (stat(current_path, &stat_buffer) != 0) {
+                if (lstat(current_path, &stat_buffer) != 0) {
+                    panic("stat error");
+                }
+            }
+            current_path[current_path_length] = '\0';
             if (S_ISDIR(stat_buffer.st_mode)) {
                 add_entry(ent->d_name, &dir_array);
             }
@@ -278,8 +282,16 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
     int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
     if (column_count <= 0) 
         column_count = 1;
-    int entries_per_page = (column_count * (winy - 3));
+    entries_per_page = (column_count * (winy - 3));
     int current_page = selected_index / entries_per_page;
+    int total_page_count = (ptrs->dir_count + ptrs->file_count) / entries_per_page;
+    if ((ptrs->dir_count + ptrs->file_count) % entries_per_page != 0)
+        total_page_count++;
+    if (total_page_count == 0)
+        total_page_count = 1;
+    char pages[32];
+    sprintf(pages, "%d/%d", current_page + 1, total_page_count);
+    mvwaddstr(win, 2, winx - strlen(pages), pages);
     int start_index = current_page * entries_per_page;
     int end_index;
     if (ptrs->dir_count + ptrs->file_count - start_index < entries_per_page) 
@@ -403,6 +415,20 @@ void entry_search_loop()
         else if (c == KEY_HOME) {
             selected_index = 0;
         }
+        else if (c == 0x15) { // ctrl+u
+            if (selected_index >= entries_per_page) 
+                selected_index -= entries_per_page;
+            else {
+                selected_index = 0;
+            }
+        }
+        else if (c == 0x04) { // ctrl+d
+            if (selected_index + entries_per_page < current_ptrs->dir_count + current_ptrs->file_count) 
+                selected_index += entries_per_page;
+            else {
+                selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
+            }
+        }
         else if (c == KEY_END) {
             selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
         }
@@ -418,7 +444,7 @@ void entry_search_loop()
                 open_editor(current_ptrs->ptrs[selected_index], searchstringindex);
             }
         }
-        else if (c == L'\t') {
+        else if (c == L'\t') { 
             if (selected_index != current_ptrs->dir_count + current_ptrs->file_count - 1)
                 selected_index++;
             else
