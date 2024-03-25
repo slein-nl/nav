@@ -20,6 +20,8 @@
 #define MAX_ENTRY_LENGTH 45
 #define INTER_COLUMN_SPACING 2
 #define KEY_ESCAPE 27
+#define KEY_CTRL_U 0x15
+#define KEY_CTRL_D 0x04
 
 struct entry_array {
     int max_size;
@@ -210,16 +212,11 @@ void get_dir_contents(char* dirname)
             add_entry(ent->d_name, &dir_array);
         } 
         else if (ent->d_type == DT_LNK) {
-            int len = strlen(ent->d_name);
-            current_path[current_path_length] = '/';
-            memcpy(&current_path[current_path_length + 1], ent->d_name, len); 
-            current_path[current_path_length + 1 + len] = '\0';
-            if (stat(current_path, &stat_buffer) != 0) {
-                if (lstat(current_path, &stat_buffer) != 0) {
-                    panic("stat error");
+            if (stat(ent->d_name, &stat_buffer) != 0) {
+                if (lstat(ent->d_name, &stat_buffer) != 0) {
+                    panic("lstat error");
                 }
             }
-            current_path[current_path_length] = '\0';
             if (S_ISDIR(stat_buffer.st_mode)) {
                 add_entry(ent->d_name, &dir_array);
             }
@@ -313,14 +310,19 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
             wstr[len - 3] = L'.';
         }
         int color = 0;
-        if (selected_index == i) {
-            color = 1;
-        }
         if (i < ptrs->dir_count) {
-            if (color == 0) color = 2;
+            if (selected_index == i) 
+                color = 1;
+            else 
+                color = 2;
             wstr[len] = L'/';
             wstr[len + 1] = L'\0';
             len++;
+        }
+        else {
+            if (selected_index == i) {
+                color = 1;
+            }
         }
         wattron(win, COLOR_PAIR(color));
         mvwaddnwstr(win, y, x, wstr, len);
@@ -385,7 +387,9 @@ void entry_search_loop()
     
     get_dir_contents(current_path);
     draw_entries(1, current_ptrs);
+    wattron(win, COLOR_PAIR(4));
     mvwaddstr(win, 2, 0, current_path);
+    wattroff(win, COLOR_PAIR(4));
     wmove(win, 0, 0);
     refresh();
     wrefresh(win);
@@ -415,14 +419,14 @@ void entry_search_loop()
         else if (c == KEY_HOME) {
             selected_index = 0;
         }
-        else if (c == 0x15) { // ctrl+u
+        else if (c == KEY_CTRL_U) { 
             if (selected_index >= entries_per_page) 
                 selected_index -= entries_per_page;
             else {
                 selected_index = 0;
             }
         }
-        else if (c == 0x04) { // ctrl+d
+        else if (c == KEY_CTRL_D) {
             if (selected_index + entries_per_page < current_ptrs->dir_count + current_ptrs->file_count) 
                 selected_index += entries_per_page;
             else {
@@ -534,6 +538,9 @@ int main(int argc, char *argv[])
     // init_color(COLOR_BLUE, 256, 588, 946);
     init_pair(1, COLOR_BLACK, COLOR_WHITE);
     init_pair(2, COLOR_BLUE, -1);
+    init_pair(3, COLOR_MAGENTA, -1);
+    init_pair(4, COLOR_GREEN, -1);
+    init_pair(6, COLOR_MAGENTA, COLOR_WHITE);
 
     win = make_window();   
     init();
