@@ -414,7 +414,10 @@ void entry_search_loop()
             change_directory("..");
         }
         else if (c == KEY_LEFT) {
-            
+            searchstringindex--;
+        }
+        else if (c == KEY_RIGHT) {
+            searchstringindex++;
         }
         else if (c == KEY_HOME) {
             selected_index = 0;
@@ -474,14 +477,19 @@ void entry_search_loop()
             } 
             else {
                 if (searchstringindex > 0) {
-                    searchstring[--searchstringindex] = '\0';
+                    memmove(&searchstring[searchstringindex - 1], &searchstring[searchstringindex], (searchstringlength - searchstringindex) * sizeof(wchar_t));
+                    searchstring[--searchstringlength] = '\0';
+                    searchstringindex--;
                     selected_index = 0;
                 }
             }
         }
         else {
+            if (searchstringindex < searchstringlength) {
+                memmove(&searchstring[searchstringindex + 1], &searchstring[searchstringindex], (searchstringlength - searchstringindex) * sizeof(wchar_t));
+            }
             searchstring[searchstringindex] = c;
-            searchstring[searchstringindex + 1] = '\0';
+            searchstring[searchstringlength + 1] = '\0';
             searchstringindex++;
             searchstringlength++;
             selected_index = 0;
@@ -490,7 +498,7 @@ void entry_search_loop()
         werase(win);
         mvwaddwstr(win, 0, 0, searchstring);
 
-        if (searchstringindex != 0) {
+        if (searchstringlength != 0) {
             current_ptrs = &found_ptrs;
             search_entries(searchstring);
             if (selected_index > found_ptrs.dir_count + found_ptrs.file_count)
