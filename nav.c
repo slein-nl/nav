@@ -43,7 +43,7 @@ struct entry_array file_array;
 struct entry_array dir_array;
 struct entry_ptrs found_ptrs; 
 struct entry_ptrs all_ptrs; 
-char current_path[PATH_MAX * 4];
+char current_path[PATH_MAX * sizeof(wchar_t)];
 int current_path_length;
 int entries_per_page;
 char* user_shell;
@@ -257,7 +257,7 @@ WINDOW* make_window()
     return window;
 }
 
-void open_editor(char* s, int len) {
+void open_editor(char* s) {
     int status;
     int pid = vfork();
     if (pid > 0) {
@@ -300,8 +300,8 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
     int x = 0;
     int y = 3;
     for (int i = start_index; i < end_index; i++) {
-        static wchar_t wstr[NAME_MAX * 4 + 1];
-        mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * 4);
+        static wchar_t wstr[NAME_MAX * sizeof(wchar_t) + 1];
+        mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * sizeof(wchar_t));
         int len = wcslen(wstr);
         if (len > longest_entry) {
             len = longest_entry;
@@ -341,8 +341,8 @@ void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
 
 void search_entries(wchar_t* searchstring)
 {
-    static char multi_byte[NAME_MAX * 4];
-    int written = wcstombs(multi_byte, searchstring, NAME_MAX * 4);
+    static char multi_byte[NAME_MAX * sizeof(wchar_t)];
+    int written = wcstombs(multi_byte, searchstring, NAME_MAX * sizeof(wchar_t));
     if (written == -1)
         panic("wcstombs error");
 
@@ -417,7 +417,8 @@ void entry_search_loop()
             searchstringindex--;
         }
         else if (c == KEY_RIGHT) {
-            searchstringindex++;
+            if (searchstringindex < searchstringlength)
+                searchstringindex++;
         }
         else if (c == KEY_HOME) {
             selected_index = 0;
@@ -445,10 +446,11 @@ void entry_search_loop()
                 if (dir_array.entry_count + file_array.entry_count <= selected_index)
                     selected_index = 0;
                 searchstringindex = 0;
+                searchstringlength--;
                 searchstring[0] = '\0';
             }
             else {
-                open_editor(current_ptrs->ptrs[selected_index], searchstringindex);
+                open_editor(current_ptrs->ptrs[selected_index]);
             }
         }
         else if (c == L'\t') { 
@@ -467,12 +469,16 @@ void entry_search_loop()
             if (c == ('\b' & 0x1F)) { // ctrl+backspace
                 if (searchstringindex > 0) {
                     int prev = searchstring[--searchstringindex];
-                    searchstring[searchstringindex] = '\0';
+                    int deleted = 1;
                     while ((searchstringindex > 0 && searchstring[searchstringindex - 1] != ' ')
                         || (searchstringindex > 0 && searchstring[searchstringindex - 1] == ' ' && prev == ' ')) {
                         prev = searchstring[searchstringindex - 1];
-                        searchstring[--searchstringindex] = '\0';
+                        searchstringindex--;
+                        deleted++;
                     }
+                    memmove(&searchstring[searchstringindex], &searchstring[searchstringindex + deleted], (searchstringlength - searchstringindex - deleted) * sizeof(wchar_t));
+                    searchstringlength -= deleted;
+                    searchstring[searchstringlength] = '\0';
                 }
             } 
             else {
@@ -484,7 +490,7 @@ void entry_search_loop()
                 }
             }
         }
-        else {
+        else { // if ordinary character
             if (searchstringindex < searchstringlength) {
                 memmove(&searchstring[searchstringindex + 1], &searchstring[searchstringindex], (searchstringlength - searchstringindex) * sizeof(wchar_t));
             }
