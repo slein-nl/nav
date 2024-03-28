@@ -35,26 +35,26 @@
 #define KEY_CTRL_U 0x15
 #define KEY_CTRL_D 0x04
 
-struct entry_array {
+typedef struct {
     int max_size;
     int max_ptrs_size;
     int entries_size;
     int entry_count;
     char** entry_pointers;
     char* entries;
-};
+} entry_array;
 
-struct entry_ptrs { 
+typedef struct { 
     int max_size;
     int dir_count;
     int file_count;
     char** ptrs;
-};
+} entry_ptrs;
 
-struct entry_array file_array;
-struct entry_array dir_array;
-struct entry_ptrs found_ptrs; 
-struct entry_ptrs all_ptrs; 
+entry_array file_array;
+entry_array dir_array;
+entry_ptrs found_ptrs; 
+entry_ptrs all_ptrs; 
 char current_path[PATH_MAX * sizeof(wchar_t)];
 int current_path_length;
 int entries_per_page;
@@ -128,7 +128,7 @@ int count_utf8_code_points(char* s) {
     return count;
 }
 
-void extend_entry_array(struct entry_array* arr) 
+void extend_entry_array(entry_array* arr) 
 {
     char* realloced = (char*)realloc(arr->entries, arr->max_size * 2);
     if (realloced) {
@@ -146,7 +146,7 @@ void extend_entry_array(struct entry_array* arr)
     }
 }
 
-void extend_entry_array_pointers(struct entry_array* arr) 
+void extend_entry_array_pointers(entry_array* arr) 
 {
     char** realloced = (char**)realloc(arr->entry_pointers, arr->max_ptrs_size * 2);
     if (realloced) {
@@ -158,7 +158,7 @@ void extend_entry_array_pointers(struct entry_array* arr)
     }
 }
 
-void extend_ptrs_array(struct entry_ptrs* arr)
+void extend_ptrs_array(entry_ptrs* arr)
 {
     char** realloced = (char**)realloc(arr->ptrs, arr->max_size * 2);
     if (realloced) {
@@ -180,7 +180,7 @@ void add_found_ptr(char* ptr)
     *array_head = ptr;
 }
 
-void add_entry(char* entry, struct entry_array* arr) 
+void add_entry(char* entry, entry_array* arr) 
 {
     int len = count_utf8_code_points(entry);
     int size = strlen(entry);
@@ -286,7 +286,7 @@ void open_editor(char* s) {
     }
 }
 
-void draw_entries(uint32_t selected_index, struct entry_ptrs* ptrs)
+void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
 {
     int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
     if (column_count <= 0) 
@@ -395,7 +395,7 @@ void entry_search_loop()
     uint32_t cursor_index = 0;
     uint32_t end_index = 0;
     uint32_t selected_index = 1;
-    struct entry_ptrs* current_ptrs = &all_ptrs;
+    entry_ptrs* current_ptrs = &all_ptrs;
     
     get_dir_contents(current_path);
     draw_entries(1, current_ptrs);
