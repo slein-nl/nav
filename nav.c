@@ -426,7 +426,7 @@ void entry_search_loop()
             change_directory("..");
         }
         else if (c == KEY_LEFT) {
-            if (cursor_index < 0)
+            if (cursor_index > 0)
                 cursor_index--;
         }
         else if (c == KEY_RIGHT) {
@@ -508,7 +508,7 @@ void entry_search_loop()
                 memmove(&searchstring[cursor_index + 1], &searchstring[cursor_index], (end_index - cursor_index) * sizeof(wchar_t));
             }
             searchstring[cursor_index] = c;
-            // searchstring[searchstringlength + 1] = '\0';
+            searchstring[end_index + 1] = '\0';
             cursor_index++;
             end_index++;
             selected_index = 0;
@@ -538,7 +538,6 @@ void entry_search_loop()
         wmove(win, 0, cursor_index);
         refresh();
         wrefresh(win);
-
     }
 }
 
