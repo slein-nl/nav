@@ -17,6 +17,18 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 
+#ifdef TIME_MEASUREMENT
+#define TIME_START(start_time) clock_t start_time = clock()
+#define TIME_END(win, start_time) do { \
+    clock_t end_time = clock(); \
+    double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC; \
+    mvwprintw(win, 1, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000); \
+} while(0)
+#else
+#define TIME_START(start_time)
+#define TIME_END(win, start_time)
+#endif
+
 #define MAX_ENTRY_LENGTH 45
 #define INTER_COLUMN_SPACING 2
 #define KEY_ESCAPE 27
@@ -195,9 +207,9 @@ void get_dir_contents(char* dirname)
     struct stat stat_buffer;
 
     dir = opendir(dirname);
-    if (dir == NULL) {
+    if (dir == NULL) 
         panic("opendir() error");
-    }
+    
 
     dir_array.entry_count = 0;
     file_array.entry_count = 0;
@@ -395,7 +407,7 @@ void entry_search_loop()
     wrefresh(win);
 
     while (true) {
-        clock_t start_time = clock();
+        TIME_START(start_time);
         get_wch((wint_t*)&c);
 
         if (c == KEY_ESCAPE) {
@@ -516,14 +528,14 @@ void entry_search_loop()
             draw_entries(selected_index, current_ptrs);  
         } 
         
+        wattron(win, COLOR_PAIR(4));
         mvwaddstr(win, 2, 0, current_path);
+        wattroff(win, COLOR_PAIR(4));
         wmove(win, 0, searchstringindex);
         refresh();
         wrefresh(win);
 
-        clock_t end_time = clock();
-        double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
-        mvwprintw(win, 1, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000);
+        TIME_END(win, start_time);
         wmove(win, 0, searchstringindex);
         wrefresh(win);
     }
@@ -536,7 +548,7 @@ void sigint_handler(int sig)
 
 int main(int argc, char *argv[]) 
 {
-    clock_t start_time = clock();
+    TIME_START(start_time);
 
     signal(SIGINT, sigint_handler);
 
@@ -577,9 +589,7 @@ int main(int argc, char *argv[])
     
     wmove(win, 0, 0);
 
-    clock_t end_time = clock();
-    double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
-    mvwprintw(win, 1, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000);
+    TIME_END(win, start_time);
 
     entry_search_loop();
 

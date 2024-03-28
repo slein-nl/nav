@@ -1,9 +1,6 @@
 a.out
 compile_commands.json
-nav
-nav_debug
-nav.o
+build/
 .cache
 perf.data
 perf.data.old
-nav.s
