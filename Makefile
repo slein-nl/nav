@@ -25,6 +25,9 @@ clean:
 build_dir:
 	@mkdir -p $(BUILD_DIR)
 
+install: release
+	@cp $(BUILD_DIR)/nav /usr/local/bin
+
 $(BUILD_DIR)/$(TARGET): $(OBJ_FILES)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 

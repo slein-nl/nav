@@ -286,6 +286,23 @@ void open_editor(char* s) {
     }
 }
 
+void open_shell() {
+    int status;
+    int pid = vfork();
+    if (pid > 0) {
+        waitpid(pid, &status, 0);
+        endwin();
+        kill(getpid(), SIGWINCH);
+    }
+    else if (pid == 0) {
+        char *args[] = {user_shell, NULL};
+        execvp(args[0], args);
+    }
+    else {
+        panic("fork error");
+    }
+}
+
 void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
 {
     int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
@@ -413,8 +430,7 @@ void entry_search_loop()
         if (c == KEY_ESCAPE) {
             delwin(win);
             endwin();
-            // system(user_shell);
-            exit(EXIT_SUCCESS);
+            open_shell();
         }
         else if (c == KEY_RESIZE) {
             getmaxyx(stdscr, termy, termx);
@@ -553,7 +569,6 @@ int main(int argc, char *argv[])
     signal(SIGINT, sigint_handler);
 
     setlocale(LC_ALL, "");
-
     initscr();
     cbreak();
     noecho();
@@ -561,7 +576,6 @@ int main(int argc, char *argv[])
     start_color();
     use_default_colors();
     init_color(COLOR_BLUE, 236, 568, 936);
-    // init_color(COLOR_BLUE, 256, 588, 946);
     init_pair(1, COLOR_BLACK, COLOR_WHITE);
     init_pair(2, COLOR_BLUE, -1);
     init_pair(3, COLOR_MAGENTA, -1);
