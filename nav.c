@@ -433,10 +433,11 @@ void entry_search_loop()
             open_shell();
         }
         else if (c == KEY_RESIZE) {
-            getmaxyx(stdscr, termy, termx);
-            winx = termx * 0.8;
-            winy = termy * 0.9;
-            wresize(win, winy, winx);
+            clear();
+            delwin(win);
+            refresh();
+            win = make_window();
+            wrefresh(win);
         }
         else if (c == KEY_UP) {
             change_directory("..");
