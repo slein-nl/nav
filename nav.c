@@ -428,7 +428,6 @@ void entry_search_loop()
         get_wch((wint_t*)&c);
 
         if (c == KEY_ESCAPE) {
-            delwin(win);
             endwin();
             open_shell();
         }
