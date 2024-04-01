@@ -429,6 +429,8 @@ void entry_search_loop()
         get_wch((wint_t*)&c);
 
         if (c == KEY_ESCAPE) {
+            fflush(stdout);
+            fflush(stderr);
             endwin();
             if (tmp_file_path[0] == '\0') {
                 open_shell();
@@ -582,6 +584,8 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, sigint_handler);
 
+    set_escdelay(0); // needed to avoid arbitrary delay added to esc inputs by ncurses (yeah, really)
+    
     setlocale(LC_ALL, "");
     initscr();
     cbreak();
