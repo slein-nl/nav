@@ -55,8 +55,9 @@ entry_array file_array;
 entry_array dir_array;
 entry_ptrs found_ptrs; 
 entry_ptrs all_ptrs; 
-char current_path[PATH_MAX * sizeof(wchar_t)];
+char current_path[PATH_MAX];
 int current_path_length;
+char tmp_file_path[PATH_MAX] = "\0";
 int entries_per_page;
 char* user_shell;
 char* user_editor;
@@ -429,7 +430,18 @@ void entry_search_loop()
 
         if (c == KEY_ESCAPE) {
             endwin();
-            open_shell();
+            if (tmp_file_path[0] == '\0') {
+                open_shell();
+            }
+            else {
+                FILE* f = fopen(tmp_file_path, "w");
+                if (f == NULL)
+                    panic("fopen error");
+                if (!fprintf(f, "%s", current_path))
+                    panic("fprint error");
+                fclose(f);
+                exit(EXIT_SUCCESS);
+            }
         }
         else if (c == KEY_RESIZE) {
             clear();
@@ -559,7 +571,9 @@ void entry_search_loop()
 
 void sigint_handler(int sig)
 {
-    panic("Ctrl + C pressed");
+    delwin(win);
+    endwin();
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) 
@@ -585,18 +599,23 @@ int main(int argc, char *argv[])
     win = make_window();   
     init();
 
+    int dir_changed = 0;
     if (argc > 1) {
         for (int i = 1; i < argc; i++) {
             if (argv[i][0] == '-') {
-                // handle option
+                if (!strncmp(argv[i], "--cd=", 5)) {
+                    realpath(argv[i] + 5, tmp_file_path);
+                }
             }
             else {
+                dir_changed = 1;
+                char full_path[PATH_MAX];
+                realpath(argv[i], full_path);
                 change_directory(argv[i]);
-                break;
             }
         }
     }
-    else {
+    if (!dir_changed) {
         getcwd(current_path, PATH_MAX);
         current_path_length = strlen(current_path);
     }
