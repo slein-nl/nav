@@ -275,15 +275,14 @@ void open_editor(char* s) {
     int pid = vfork();
     if (pid > 0) {
         waitpid(pid, &status, 0);
-        endwin();
-        kill(getpid(), SIGWINCH);
     }
     else if (pid == 0) {
         char *args[] = {user_editor, s, NULL};
+        endwin();
         execvp(args[0], args);
     }
     else {
-        panic("fork error");
+        panic("fork error when opening editor");
     }
 }
 
@@ -292,15 +291,14 @@ void open_shell() {
     int pid = vfork();
     if (pid > 0) {
         waitpid(pid, &status, 0);
-        endwin();
-        kill(getpid(), SIGWINCH);
     }
     else if (pid == 0) {
         char *args[] = {user_shell, NULL};
+        endwin();
         execvp(args[0], args);
     }
     else {
-        panic("fork error");
+        panic("fork error when spawning shell");
     }
 }
 
@@ -429,13 +427,12 @@ void entry_search_loop()
         get_wch((wint_t*)&c);
 
         if (c == KEY_ESCAPE) {
-            fflush(stdout);
-            fflush(stderr);
             endwin();
             if (tmp_file_path[0] == '\0') {
                 open_shell();
             }
             else {
+                delwin(win);
                 FILE* f = fopen(tmp_file_path, "w");
                 if (f == NULL)
                     panic("fopen error");
