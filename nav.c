@@ -109,7 +109,7 @@ void init()
         found_ptrs.ptrs == NULL ||
         all_ptrs.ptrs == NULL) {
 
-        panic("memory allocation error");
+        panic("Error when allocating memory");
     }
 }
 
@@ -143,7 +143,7 @@ void extend_entry_array(entry_array* arr)
         arr->max_size *= 2;
     }
     else {
-        panic("realloc error");
+        panic("Realloc error when loading directory entries");
     }
 }
 
@@ -155,7 +155,7 @@ void extend_entry_array_pointers(entry_array* arr)
         arr->max_ptrs_size *= 2;
     }
     else {
-        panic("realloc error");
+        panic("Realloc error when loading directory entries");
     }
 }
 
@@ -167,7 +167,7 @@ void extend_ptrs_array(entry_ptrs* arr)
         arr->max_size *= 2;
     }
     else {
-        panic("realloc error");
+        panic("Realloc error when loading directory entries");
     }
 }
 
@@ -282,7 +282,7 @@ void open_editor(char* s) {
         execvp(args[0], args);
     }
     else {
-        panic("fork error when opening editor");
+        panic("Fork error when opening editor");
     }
 }
 
@@ -298,7 +298,7 @@ void open_shell() {
         execvp(args[0], args);
     }
     else {
-        panic("fork error when spawning shell");
+        panic("Fork error when spawning shell");
     }
 }
 
