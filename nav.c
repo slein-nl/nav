@@ -34,6 +34,7 @@
 #define KEY_ESCAPE 27
 #define KEY_CTRL_U 0x15
 #define KEY_CTRL_D 0x04
+#define KEY_TAB 0x09
 
 typedef struct {
     int max_size;
@@ -425,120 +426,135 @@ void entry_search_loop()
     while (true) {
         TIME_START(start_time);
         get_wch((wint_t*)&c);
+        
+        switch (c) {
+            case KEY_ESCAPE:
+                endwin();
+                if (tmp_file_path[0] == '\0') {
+                    open_shell();
+                } 
+                else {
+                    delwin(win);
+                    FILE* f = fopen(tmp_file_path, "w");
+                    if (f == NULL)
+                        panic("fopen error");
+                    if (!fprintf(f, "%s", current_path))
+                        panic("fprint error");
+                    fclose(f);
+                    exit(EXIT_SUCCESS);
+                }
+                break;
 
-        if (c == KEY_ESCAPE) {
-            endwin();
-            if (tmp_file_path[0] == '\0') {
-                open_shell();
-            }
-            else {
+            case KEY_RESIZE:
+                clear();
                 delwin(win);
-                FILE* f = fopen(tmp_file_path, "w");
-                if (f == NULL)
-                    panic("fopen error");
-                if (!fprintf(f, "%s", current_path))
-                    panic("fprint error");
-                fclose(f);
-                exit(EXIT_SUCCESS);
-            }
-        }
-        else if (c == KEY_RESIZE) {
-            clear();
-            delwin(win);
-            refresh();
-            win = make_window();
-            wrefresh(win);
-        }
-        else if (c == KEY_UP) {
-            change_directory("..");
-        }
-        else if (c == KEY_LEFT) {
-            if (cursor_index > 0)
-                cursor_index--;
-        }
-        else if (c == KEY_RIGHT) {
-            if (cursor_index < end_index)
-                cursor_index++;
-        }
-        else if (c == KEY_HOME) {
-            selected_index = 0;
-        }
-        else if (c == KEY_CTRL_U) { 
-            if (selected_index >= entries_per_page) 
-                selected_index -= entries_per_page;
-            else {
-                selected_index = 0;
-            }
-        }
-        else if (c == KEY_CTRL_D) {
-            if (selected_index + entries_per_page < current_ptrs->dir_count + current_ptrs->file_count) 
-                selected_index += entries_per_page;
-            else {
-                selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
-            }
-        }
-        else if (c == KEY_END) {
-            selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
-        }
-        else if (c == L'\n' || c == KEY_DOWN) {
-            if (selected_index < current_ptrs->dir_count) {
-                change_directory(current_ptrs->ptrs[selected_index]);
-                if (dir_array.entry_count + file_array.entry_count <= selected_index)
-                    selected_index = 0;
-                cursor_index = 0;
-                end_index = 0;
-                searchstring[0] = '\0';
-            }
-            else {
-                open_editor(current_ptrs->ptrs[selected_index]);
-            }
-        }
-        else if (c == L'\t') { 
-            if (selected_index != current_ptrs->dir_count + current_ptrs->file_count - 1)
-                selected_index++;
-            else
-                selected_index = 0;
-        }
-        else if (c == KEY_BTAB) {
-            if (selected_index != 0) 
-                selected_index--;
-            else
-                selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
-        }
-        else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
-            if (c == ('\b' & 0x1F)) { // ctrl+backspace
-                if (cursor_index > 0) {
-                    int prev = searchstring[--cursor_index];
-                    int deleted = 1;
-                    while ((cursor_index > 0 && searchstring[cursor_index - 1] != ' ')
-                        || (cursor_index > 0 && searchstring[cursor_index - 1] == ' ' && prev == ' ')) {
-                        prev = searchstring[cursor_index - 1];
-                        cursor_index--;
-                        deleted++;
-                    }
-                    memmove(&searchstring[cursor_index], &searchstring[cursor_index + deleted], (end_index - cursor_index - deleted) * sizeof(wchar_t));
-                    end_index -= deleted;
-                    searchstring[end_index] = '\0';
-                }
-            } 
-            else {
-                if (cursor_index > 0) {
-                    memmove(&searchstring[cursor_index - 1], &searchstring[cursor_index], (end_index - cursor_index) * sizeof(wchar_t));
-                    searchstring[--end_index] = '\0';
+                refresh();
+                win = make_window();
+                wrefresh(win);
+                break;
+
+            case KEY_UP:
+                change_directory("..");
+                break;
+
+            case KEY_LEFT:
+                if (cursor_index > 0) 
                     cursor_index--;
+                break;
+
+            case KEY_RIGHT:
+                if (cursor_index < end_index) 
+                    cursor_index++;
+                break;
+
+            case KEY_HOME:
+                selected_index = 0;
+                break;
+
+            case KEY_CTRL_U:
+                if (selected_index >= entries_per_page) 
+                    selected_index -= entries_per_page;
+                else 
                     selected_index = 0;
+                break;
+
+            case KEY_CTRL_D:
+                if (selected_index + entries_per_page < current_ptrs->dir_count + current_ptrs->file_count) 
+                    selected_index += entries_per_page;
+                else 
+                    selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
+                break;
+
+            case KEY_END:
+                selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
+                break;
+
+            case L'\n':
+            case KEY_DOWN:
+                if (selected_index < current_ptrs->dir_count) {
+                    change_directory(current_ptrs->ptrs[selected_index]);
+                    if (dir_array.entry_count + file_array.entry_count <= selected_index)
+                        selected_index = 0;
+                    cursor_index = 0;
+                    end_index = 0;
+                    searchstring[0] = '\0';
                 }
-            }
-        }
-        else { // if ordinary character
-            if (cursor_index < end_index) {
-                memmove(&searchstring[cursor_index + 1], &searchstring[cursor_index], (end_index - cursor_index) * sizeof(wchar_t));
-            }
-            searchstring[cursor_index] = c;
-            searchstring[end_index + 1] = '\0';
-            cursor_index++;
-            end_index++;
-            selected_index = 0;
+                else {
+                    open_editor(current_ptrs->ptrs[selected_index]);
+                }
+                break;
+
+            case KEY_TAB:
+                if (selected_index != current_ptrs->dir_count + current_ptrs->file_count - 1)
+                    selected_index++;
+                else
+                    selected_index = 0;
+                break;
+
+            case KEY_BTAB:
+                if (selected_index != 0) 
+                    selected_index--;
+                else 
+                    selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
+                break;
+
+            case KEY_BACKSPACE:
+            case 127:
+            case '\b':
+                if (c == ('\b' & 0x1F)) { // ctrl+backspace
+                    if (cursor_index > 0) {
+                        int prev = searchstring[--cursor_index];
+                        int deleted = 1;
+                        while ((cursor_index > 0 && searchstring[cursor_index - 1] != ' ')
+                            || (cursor_index > 0 && searchstring[cursor_index - 1] == ' ' && prev == ' ')) {
+                            prev = searchstring[cursor_index - 1];
+                            cursor_index--;
+                            deleted++;
+                        }
+                        memmove(&searchstring[cursor_index], &searchstring[cursor_index + deleted], (end_index - cursor_index - deleted) * sizeof(wchar_t));
+                        end_index -= deleted;
+                        searchstring[end_index] = '\0';
+                    }
+                } 
+                else {
+                    if (cursor_index > 0) {
+                        memmove(&searchstring[cursor_index - 1], &searchstring[cursor_index], (end_index - cursor_index) * sizeof(wchar_t));
+                        searchstring[--end_index] = '\0';
+                        cursor_index--;
+                        selected_index = 0;
+                    }
+                }
+                break;
+
+            default:
+                if (cursor_index < end_index) 
+                    memmove(&searchstring[cursor_index + 1], &searchstring[cursor_index], (end_index - cursor_index) * sizeof(wchar_t));
+                searchstring[cursor_index] = c;
+                searchstring[end_index + 1] = '\0';
+                cursor_index++;
+                end_index++;
+                selected_index = 0;
+                break;
         }
 
         werase(win);
