@@ -22,7 +22,7 @@
 #define TIME_END(win, start_time) do { \
     clock_t end_time = clock(); \
     double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC; \
-    mvwprintw(win, 1, 0, "Time elapsed: %f milliseconds", elapsed_time * 1000); \
+    snprintf(user_msg, 256, "Time elapsed: %f milliseconds", elapsed_time * 1000); \
 } while(0)
 #else
 #define TIME_START(start_time)
@@ -56,6 +56,7 @@ entry_array file_array;
 entry_array dir_array;
 entry_ptrs found_ptrs; 
 entry_ptrs all_ptrs; 
+char user_msg[256] = {};
 char current_path[PATH_MAX];
 int current_path_length;
 char tmp_file_path[PATH_MAX] = "\0";
@@ -69,12 +70,17 @@ int termy;
 int winx;
 int winy;
 
-void panic(char* errormsg) 
+void panic(char* error_msg) 
 {
     delwin(win);
     endwin();
-    printf("%s\n", errormsg);
+    printf("%s\n", error_msg);
     exit(EXIT_FAILURE);
+}
+
+inline void error(char* error_msg) 
+{
+    snprintf(user_msg, 256, "%s", error_msg);
 }
 
 void init()
@@ -401,7 +407,10 @@ void change_directory(char* dir)
         get_dir_contents(current_path);
     }
     else {
-        panic("chdir error");
+        if (access(dir, R_OK) == 0) 
+            panic("Error: chdir() error");
+        else
+            error("Error: Unable to enter directory due to Insufficient permissions");
     }
 }
 
@@ -416,6 +425,7 @@ void entry_search_loop()
     
     get_dir_contents(current_path);
     draw_entries(1, current_ptrs);
+    mvwaddstr(win, 1, 0, user_msg);
     wattron(win, COLOR_PAIR(4));
     mvwaddstr(win, 2, 0, current_path);
     wattroff(win, COLOR_PAIR(4));
@@ -578,9 +588,12 @@ void entry_search_loop()
 
         TIME_END(win, start_time);
 
+        mvwaddstr(win, 1, 0, user_msg);
+
         wmove(win, 0, cursor_index);
         refresh();
         wrefresh(win);
+        user_msg[0] = '\0';
     }
 }
 
@@ -597,7 +610,7 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, sigint_handler);
 
-    set_escdelay(0); // needed to avoid arbitrary delay added to esc inputs by ncurses (yeah, really)
+    set_escdelay(0);
     
     setlocale(LC_ALL, "");
     initscr();
