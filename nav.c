@@ -58,8 +58,7 @@ entry_ptrs found_ptrs;
 entry_ptrs all_ptrs; 
 char user_msg[256] = {};
 char current_path[PATH_MAX];
-int current_path_length;
-char tmp_file_path[PATH_MAX] = "\0";
+char tmp_file_path[PATH_MAX] = {};
 int entries_per_page;
 char* user_shell;
 char* user_editor;
@@ -403,7 +402,6 @@ void change_directory(char* dir)
 {
     if (chdir(dir) == 0) {
         getcwd(current_path, PATH_MAX);
-        current_path_length = strlen(current_path);
         get_dir_contents(current_path);
     }
     else {
@@ -647,7 +645,6 @@ int main(int argc, char *argv[])
     }
     if (!dir_changed) {
         getcwd(current_path, PATH_MAX);
-        current_path_length = strlen(current_path);
     }
     
     wmove(win, 0, 0);
