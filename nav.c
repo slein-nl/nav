@@ -277,6 +277,11 @@ WINDOW* make_window()
 }
 
 void open_editor(char* s) {
+    if (!user_editor) {
+        error("Error: $EDITOR undefined in environment");
+        return;
+    }
+    
     int status;
     int pid = vfork();
 
@@ -304,6 +309,11 @@ void open_editor(char* s) {
 }
 
 void open_shell() {
+    if (!user_shell) {
+        error("Error: $SHELL undefined in environment");
+        return;
+    }
+
     int status;
     int pid = vfork();
 
