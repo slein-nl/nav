@@ -279,8 +279,19 @@ WINDOW* make_window()
 void open_editor(char* s) {
     int status;
     int pid = vfork();
+
+    // save & disable sighandlers during fork time so they dont interfere with editor
+    struct sigaction empty_sigact;
+    memset(&empty_sigact, 0, sizeof(struct sigaction));
+    struct sigaction sigwinch;
+    struct sigaction sigint;
+    sigaction(SIGWINCH, &empty_sigact, &sigwinch);
+    sigaction(SIGINT, &empty_sigact, &sigint);
+
     if (pid > 0) {
         waitpid(pid, &status, 0);
+        sigaction(SIGWINCH, &sigwinch, NULL);
+        sigaction(SIGINT, &sigint, NULL);
     }
     else if (pid == 0) {
         char *args[] = {user_editor, s, NULL};
@@ -295,8 +306,19 @@ void open_editor(char* s) {
 void open_shell() {
     int status;
     int pid = vfork();
+
+    // save & disable sighandlers during fork time so they dont interfere with shell
+    struct sigaction empty_sigact;
+    memset(&empty_sigact, 0, sizeof(struct sigaction));
+    struct sigaction sigwinch;
+    struct sigaction sigint;
+    sigaction(SIGWINCH, &empty_sigact, &sigwinch);
+    sigaction(SIGINT, &empty_sigact, &sigint);
+
     if (pid > 0) {
         waitpid(pid, &status, 0);
+        sigaction(SIGWINCH, &sigwinch, NULL);
+        sigaction(SIGINT, &sigint, NULL);
     }
     else if (pid == 0) {
         char *args[] = {user_shell, NULL};
