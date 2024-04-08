@@ -56,13 +56,13 @@ entry_array file_array;
 entry_array dir_array;
 entry_ptrs found_ptrs; 
 entry_ptrs all_ptrs; 
-char user_msg[256] = {};
+char user_msg[256];
 char current_path[PATH_MAX];
-char tmp_file_path[PATH_MAX] = {};
+char tmp_file_path[PATH_MAX];
 int entries_per_page;
 char* user_shell;
 char* user_editor;
-int longest_entry = 0; 
+int longest_entry; 
 WINDOW* win;
 int termx;
 int termy; 
@@ -115,7 +115,7 @@ void init()
         found_ptrs.ptrs == NULL ||
         all_ptrs.ptrs == NULL) {
 
-        panic("Error when allocating memory");
+        panic("Error: Error when allocating memory");
     }
 }
 
@@ -149,7 +149,7 @@ void extend_entry_array(entry_array* arr)
         arr->max_size *= 2;
     }
     else {
-        panic("Realloc error when loading directory entries");
+        panic("Error: Realloc error when loading directory entries");
     }
 }
 
@@ -161,7 +161,7 @@ void extend_entry_array_pointers(entry_array* arr)
         arr->max_ptrs_size *= 2;
     }
     else {
-        panic("Realloc error when loading directory entries");
+        panic("Error: Realloc error when loading directory entries");
     }
 }
 
@@ -173,7 +173,7 @@ void extend_ptrs_array(entry_ptrs* arr)
         arr->max_size *= 2;
     }
     else {
-        panic("Realloc error when loading directory entries");
+        panic("Error: Realloc error when loading directory entries");
     }
 }
 
@@ -281,9 +281,6 @@ void open_editor(char* s) {
         error("Error: $EDITOR undefined in environment");
         return;
     }
-    
-    int status;
-    int pid = vfork();
 
     // save & disable sighandlers during fork time so they dont interfere with editor
     struct sigaction empty_sigact;
@@ -293,6 +290,8 @@ void open_editor(char* s) {
     sigaction(SIGWINCH, &empty_sigact, &sigwinch);
     sigaction(SIGINT, &empty_sigact, &sigint);
 
+    int status;
+    int pid = vfork();
     if (pid > 0) {
         waitpid(pid, &status, 0);
         sigaction(SIGWINCH, &sigwinch, NULL);
@@ -304,7 +303,7 @@ void open_editor(char* s) {
         execvp(args[0], args);
     }
     else {
-        panic("Fork error when opening editor");
+        panic("Error: Fork error when opening editor");
     }
 }
 
@@ -314,9 +313,6 @@ void open_shell() {
         return;
     }
 
-    int status;
-    int pid = vfork();
-
     // save & disable sighandlers during fork time so they dont interfere with shell
     struct sigaction empty_sigact;
     memset(&empty_sigact, 0, sizeof(struct sigaction));
@@ -325,6 +321,8 @@ void open_shell() {
     sigaction(SIGWINCH, &empty_sigact, &sigwinch);
     sigaction(SIGINT, &empty_sigact, &sigint);
 
+    int status;
+    int pid = vfork();
     if (pid > 0) {
         waitpid(pid, &status, 0);
         sigaction(SIGWINCH, &sigwinch, NULL);
@@ -336,7 +334,7 @@ void open_shell() {
         execvp(args[0], args);
     }
     else {
-        panic("Fork error when spawning shell");
+        panic("Error: Fork error when spawning shell");
     }
 }
 
