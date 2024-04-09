@@ -52,10 +52,42 @@ typedef struct {
     char** ptrs;
 } entry_ptrs;
 
-entry_array file_array;
-entry_array dir_array;
-entry_ptrs found_ptrs; 
-entry_ptrs all_ptrs; 
+entry_array file_array = {
+    .max_size = 512,
+    .max_ptrs_size = 512,
+    .entry_count = 0,
+    .entries_size = 0,
+};
+entry_array dir_array = {
+    .max_size = 512,
+    .max_ptrs_size = 512,
+    .entry_count = 0,
+    .entries_size = 0,
+};
+entry_array preview_file_array = {
+    .max_size = 512,
+    .max_ptrs_size = 512,
+    .entry_count = 0,
+    .entries_size = 0,
+};
+entry_array preview_dir_array = {
+    .max_size = 512,
+    .max_ptrs_size = 512,
+    .entry_count = 0,
+    .entries_size = 0,
+};
+
+entry_ptrs found_ptrs = {
+    .max_size = 512,
+    .dir_count = 0,
+    .file_count = 0,
+};
+entry_ptrs all_ptrs = {
+    .max_size = 512,
+    .dir_count = 0,
+    .file_count = 0,
+}; 
+
 char user_msg[256];
 char current_path[PATH_MAX];
 char tmp_file_path[PATH_MAX];
@@ -87,31 +119,25 @@ void init()
     user_shell = getenv("SHELL");
     user_editor = getenv("EDITOR");
 
-    file_array.entry_count = 0;
-    file_array.max_size = 512;
-    file_array.max_ptrs_size = 512;
-    file_array.entries_size = 0;
     file_array.entries = (char*)malloc(512);
     file_array.entry_pointers = (char**)malloc(512);
-    dir_array.entry_count = 0;
-    dir_array.max_size = 512;
-    dir_array.max_ptrs_size = 512;
-    dir_array.entries_size = 0;
     dir_array.entries = (char*)malloc(512);
     dir_array.entry_pointers = (char**)malloc(512);
-    found_ptrs.dir_count = 0;
-    found_ptrs.file_count= 0;
+    preview_file_array.entries = (char*)malloc(512);
+    preview_file_array.entry_pointers = (char**)malloc(512);
+    preview_dir_array.entries = (char*)malloc(512);
+    preview_dir_array.entry_pointers = (char**)malloc(512);
     found_ptrs.ptrs = malloc(512);
-    found_ptrs.max_size = 512;
-    all_ptrs.dir_count = 0;
-    all_ptrs.file_count= 0;
     all_ptrs.ptrs = malloc(512);
-    all_ptrs.max_size = 512;
 
     if (file_array.entries == NULL ||
         dir_array.entries == NULL ||
         dir_array.entry_pointers == NULL ||
         file_array.entry_pointers == NULL ||
+        preview_file_array.entries == NULL ||
+        preview_file_array.entry_pointers == NULL ||
+        preview_dir_array.entries == NULL ||
+        preview_dir_array.entry_pointers == NULL ||
         found_ptrs.ptrs == NULL ||
         all_ptrs.ptrs == NULL) {
 
@@ -129,7 +155,8 @@ int compare_entries(const void* a, const void* b)
 int count_utf8_code_points(char* s) {
     int count = 0;
     while (*s) {
-        count += (*s & 0xC0) != 0x80; // add if byte is neither continuation byte nor single character byte
+        // add if byte is neither continuation byte nor single character byte
+        count += (*s & 0xC0) != 0x80; 
         s++;
     }
     return count;
