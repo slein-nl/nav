@@ -96,14 +96,16 @@ char* user_shell;
 char* user_editor;
 int longest_entry; 
 WINDOW* win;
+WINDOW* preview_win;
 int termx;
 int termy; 
 int winx;
 int winy;
+int preview_winx;
+int preview_winy;
 
 void panic(char* error_msg) 
 {
-    delwin(win);
     endwin();
     printf("%s\n", error_msg);
     exit(EXIT_FAILURE);
@@ -155,7 +157,7 @@ int compare_entries(const void* a, const void* b)
 int count_utf8_code_points(char* s) {
     int count = 0;
     while (*s) {
-        // add if byte is neither continuation byte nor single character byte
+        // add if byte not continuation byte
         count += (*s & 0xC0) != 0x80; 
         s++;
     }
@@ -292,15 +294,28 @@ void get_dir_contents(char* dirname)
     all_ptrs.dir_count = dir_array.entry_count;
 }
 
-WINDOW* make_window() 
+void make_windows() 
 {
+    float vertical_margin_factor = 0.05;
     getmaxyx(stdscr, termy, termx);
-    winx = termx * 0.8;
-    winy = termy * 0.9;
+    if (termy > 25) {
+        winx = termx * 0.8;
+        winy = termy * 0.65;
+        preview_winx = termx * 0.8;
+        preview_winy = (winy + (termy * vertical_margin_factor)) - (termy * vertical_margin_factor);
+        int preview_startx = (termx - winx) / 2;
+        int preview_starty = winy + (termy * vertical_margin_factor) + 1;
+        preview_win = newwin(preview_winy, preview_winx, preview_starty, preview_startx);
+    }
+    else {
+        winx = termx * 0.8;
+        winy = termy * 0.9;
+        delwin(preview_win);
+        preview_win = NULL;
+    }
     int startx = (termx - winx) / 2;
-    int starty = (termy - winy) / 2;
-    WINDOW* window = newwin(winy, winx, starty, startx);
-    return window;
+    int starty = termy * vertical_margin_factor;
+    win = newwin(winy, winx, starty, startx);
 }
 
 void open_editor(char* s) {
@@ -392,8 +407,9 @@ void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
     int y = 3;
     for (int i = start_index; i < end_index; i++) {
         static wchar_t wstr[NAME_MAX * sizeof(wchar_t) + 1];
-        mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * sizeof(wchar_t));
-        int len = wcslen(wstr);
+        int len = mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * sizeof(wchar_t));
+        if (len == -1)
+            panic("Error: mbstowcs error when converting filename for rendering");
         if (len > longest_entry) {
             len = longest_entry;
             wstr[len - 1] = L'.';
@@ -471,7 +487,7 @@ void change_directory(char* dir)
 
 void entry_search_loop() 
 {
-    wchar_t c = 0;
+    wchar_t c = KEY_BACKSPACE; 
     wchar_t searchstring[NAME_MAX] = {};
     uint32_t cursor_index = 0;
     uint32_t end_index = 0;
@@ -479,18 +495,9 @@ void entry_search_loop()
     entry_ptrs* current_ptrs = &all_ptrs;
     
     get_dir_contents(current_path);
-    draw_entries(1, current_ptrs);
-    mvwaddstr(win, 1, 0, user_msg);
-    wattron(win, COLOR_PAIR(4));
-    mvwaddstr(win, 2, 0, current_path);
-    wattroff(win, COLOR_PAIR(4));
-    wmove(win, 0, 0);
-    refresh();
-    wrefresh(win);
 
     while (true) {
         TIME_START(start_time);
-        get_wch((wint_t*)&c);
         
         switch (c) {
             case KEY_ESCAPE:
@@ -513,8 +520,9 @@ void entry_search_loop()
             case KEY_RESIZE:
                 clear();
                 delwin(win);
+                delwin(preview_win);
                 refresh();
-                win = make_window();
+                make_windows();
                 wrefresh(win);
                 break;
 
@@ -645,16 +653,26 @@ void entry_search_loop()
 
         mvwaddstr(win, 1, 0, user_msg);
 
+        if (preview_win) {
+            werase(preview_win);
+            wchar_t preview_file[NAME_MAX];
+            if (!mbstowcs(preview_file, current_ptrs->ptrs[selected_index], NAME_MAX))
+                panic("Error: mbstowcs error when converting file name for preview");
+            mvwaddwstr(preview_win, 0, 0, preview_file);
+
+        }
+
         wmove(win, 0, cursor_index);
         refresh();
+        wrefresh(preview_win);
         wrefresh(win);
         user_msg[0] = '\0';
+        get_wch((wint_t*)&c);
     }
 }
 
 void sigint_handler(int sig)
 {
-    delwin(win);
     endwin();
     exit(EXIT_FAILURE);
 }
@@ -681,16 +699,15 @@ int main(int argc, char *argv[])
     init_pair(4, COLOR_GREEN, -1);
     init_pair(6, COLOR_MAGENTA, COLOR_WHITE);
 
-    win = make_window();   
+    make_windows();   
     init();
 
     int dir_changed = 0;
     if (argc > 1) {
         for (int i = 1; i < argc; i++) {
             if (argv[i][0] == '-') {
-                if (!strncmp(argv[i], "--cd=", 5)) {
+                if (!strncmp(argv[i], "--cd=", 5)) 
                     realpath(argv[i] + 5, tmp_file_path);
-                }
             }
             else {
                 dir_changed = 1;
@@ -710,7 +727,6 @@ int main(int argc, char *argv[])
 
     entry_search_loop();
 
-    // getch();
     delwin(win);
     endwin();
 
