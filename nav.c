@@ -481,8 +481,55 @@ void change_directory(char* dir)
         if (access(dir, R_OK) == 0) 
             panic("Error: chdir() error");
         else
-            error("Error: Unable to enter directory due to Insufficient permissions");
+            error("Error: Unable to enter directory due to insufficient permissions");
     }
+}
+
+void get_preview_dir_contents(char* dirname, int n)
+{
+    DIR *dir;
+    struct dirent *ent;
+    struct stat stat_buffer;
+
+    dir = opendir(dirname);
+    if (dir == NULL) 
+        panic("opendir() error");
+
+    preview_dir_array.entry_count = 0;
+    preview_file_array.entry_count = 0;
+    
+    int i = 0;
+    while ((ent = readdir(dir)) != NULL && i++ < n) {
+        if (!strcmp(ent->d_name, "."))
+            continue;
+        if (ent->d_type == DT_DIR) {
+            add_entry(ent->d_name, &preview_dir_array);
+        } 
+        else if (ent->d_type == DT_LNK) {
+            if (stat(ent->d_name, &stat_buffer) != 0) {
+                if (lstat(ent->d_name, &stat_buffer) != 0) {
+                    panic("lstat error");
+                }
+            }
+            if (S_ISDIR(stat_buffer.st_mode)) {
+                add_entry(ent->d_name, &preview_dir_array);
+            }
+            else {
+                add_entry(ent->d_name, &preview_file_array);
+            }
+        } 
+        else {
+            add_entry(ent->d_name, &preview_file_array);
+        }
+    }
+
+    qsort(preview_dir_array.entry_pointers, preview_dir_array.entry_count, sizeof(char*), compare_entries);
+    qsort(preview_file_array.entry_pointers, preview_file_array.entry_count, sizeof(char*), compare_entries);
+}
+
+void draw_previews()
+{
+    
 }
 
 void entry_search_loop() 
@@ -660,11 +707,15 @@ void entry_search_loop()
                 panic("Error: mbstowcs error when converting file name for preview");
             mvwaddwstr(preview_win, 0, 0, preview_file);
 
+            if (selected_index < current_ptrs->file_count + current_ptrs->dir_count) {
+                
+            }
         }
 
         wmove(win, 0, cursor_index);
         refresh();
-        wrefresh(preview_win);
+        if (preview_win)
+            wrefresh(preview_win);
         wrefresh(win);
         user_msg[0] = '\0';
         get_wch((wint_t*)&c);
