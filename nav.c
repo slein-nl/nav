@@ -103,6 +103,7 @@ int winx;
 int winy;
 int preview_winx;
 int preview_winy;
+int preview_longest_entry;
 
 void panic(char* error_msg) 
 {
@@ -216,12 +217,12 @@ void add_found_ptr(char* ptr)
     *array_head = ptr;
 }
 
-void add_entry(char* entry, entry_array* arr) 
+void add_entry(char* entry, entry_array* arr, int* longest_entry) 
 {
     int len = count_utf8_code_points(entry);
     int size = strlen(entry);
-    if (len > longest_entry && len <= MAX_ENTRY_LENGTH) 
-        longest_entry = len;
+    if (len > *longest_entry && len <= MAX_ENTRY_LENGTH) 
+        *longest_entry = len;
     while ((arr->entries_size + len + 1) > arr->max_size) {
         extend_entry_array(arr);
     }
@@ -257,7 +258,7 @@ void get_dir_contents(char* dirname)
         if (!strcmp(ent->d_name, "."))
             continue;
         if (ent->d_type == DT_DIR) {
-            add_entry(ent->d_name, &dir_array);
+            add_entry(ent->d_name, &dir_array, &longest_entry);
         } 
         else if (ent->d_type == DT_LNK) {
             if (stat(ent->d_name, &stat_buffer) != 0) {
@@ -266,14 +267,14 @@ void get_dir_contents(char* dirname)
                 }
             }
             if (S_ISDIR(stat_buffer.st_mode)) {
-                add_entry(ent->d_name, &dir_array);
+                add_entry(ent->d_name, &dir_array, &longest_entry);
             }
             else {
-                add_entry(ent->d_name, &file_array);
+                add_entry(ent->d_name, &file_array, &longest_entry);
             }
         } 
         else {
-            add_entry(ent->d_name, &file_array);
+            add_entry(ent->d_name, &file_array, &longest_entry);
         }
     }
 
@@ -318,7 +319,7 @@ void make_windows()
     win = newwin(winy, winx, starty, startx);
 }
 
-void open_editor(char* s) {
+void open_editor(char* path) {
     if (!user_editor) {
         error("Error: $EDITOR undefined in environment");
         return;
@@ -340,7 +341,7 @@ void open_editor(char* s) {
         sigaction(SIGINT, &sigint, NULL);
     }
     else if (pid == 0) {
-        char *args[] = {user_editor, s, NULL};
+        char *args[] = {user_editor, path, NULL};
         endwin();
         execvp(args[0], args);
     }
@@ -402,11 +403,11 @@ void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
     else 
         end_index = start_index + entries_per_page; 
 
-    int row = 0;
+    int column = 0;
     int x = 0;
     int y = 3;
     for (int i = start_index; i < end_index; i++) {
-        static wchar_t wstr[NAME_MAX * sizeof(wchar_t) + 1];
+        static wchar_t wstr[NAME_MAX + 1];
         int len = mbstowcs(wstr, ptrs->ptrs[i], NAME_MAX * sizeof(wchar_t));
         if (len == -1)
             panic("Error: mbstowcs error when converting filename for rendering");
@@ -437,11 +438,11 @@ void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
         wattroff(win, COLOR_PAIR(color));
 
         x += longest_entry + INTER_COLUMN_SPACING;
-        row++;
-        if (row > column_count - 1) {
+        column++;
+        if (column > column_count - 1) {
             y++;
             x = 0;
-            row = 0;
+            column = 0;
         }
     }
 }
@@ -497,29 +498,37 @@ void get_preview_dir_contents(char* dirname, int n)
 
     preview_dir_array.entry_count = 0;
     preview_file_array.entry_count = 0;
+    preview_longest_entry = 0;
     
+    char path[PATH_MAX];
+    int len = strlcpy(path, dirname, NAME_MAX);
+    path[len] = '/';
+    path[len + 1] = '\0';
     int i = 0;
     while ((ent = readdir(dir)) != NULL && i++ < n) {
         if (!strcmp(ent->d_name, "."))
             continue;
+        if (!strcmp(ent->d_name, ".."))
+            continue;
         if (ent->d_type == DT_DIR) {
-            add_entry(ent->d_name, &preview_dir_array);
+            add_entry(ent->d_name, &preview_dir_array, &preview_longest_entry);
         } 
         else if (ent->d_type == DT_LNK) {
-            if (stat(ent->d_name, &stat_buffer) != 0) {
-                if (lstat(ent->d_name, &stat_buffer) != 0) {
+            strlcpy(&path[len + 1], ent->d_name, NAME_MAX);
+            if (stat(path, &stat_buffer) != 0) {
+                if (lstat(path, &stat_buffer) != 0) {
                     panic("lstat error");
                 }
             }
             if (S_ISDIR(stat_buffer.st_mode)) {
-                add_entry(ent->d_name, &preview_dir_array);
+                add_entry(ent->d_name, &preview_dir_array, &preview_longest_entry);
             }
             else {
-                add_entry(ent->d_name, &preview_file_array);
+                add_entry(ent->d_name, &preview_file_array, &preview_longest_entry);
             }
         } 
         else {
-            add_entry(ent->d_name, &preview_file_array);
+            add_entry(ent->d_name, &preview_file_array, &preview_longest_entry);
         }
     }
 
@@ -529,7 +538,63 @@ void get_preview_dir_contents(char* dirname, int n)
 
 void draw_previews()
 {
-    
+    int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
+    if (column_count <= 0) 
+        column_count = 1;
+    static wchar_t wstr[NAME_MAX + 1];
+
+    int column = 0;
+    int x = 0;
+    int y = 1;
+    for (int i = 0; i < preview_dir_array.entry_count; i++) {
+        int len = mbstowcs(wstr, preview_dir_array.entry_pointers[i], NAME_MAX);
+        if (len == -1)
+            panic("Error: mbstowcs error when converting filename for rendering");
+        if (len > preview_longest_entry) {
+            len = preview_longest_entry;
+            wstr[len - 1] = L'.';
+            wstr[len - 2] = L'.';
+            wstr[len - 3] = L'.';
+        }
+        int color = 2;
+        wstr[len] = L'/';
+        wstr[len + 1] = L'\0';
+        len++;
+        wattron(preview_win, COLOR_PAIR(color));
+        mvwaddnwstr(preview_win, y, x, wstr, NAME_MAX);
+        wattroff(preview_win, COLOR_PAIR(color));
+
+        x += len + INTER_COLUMN_SPACING;
+        column++;
+        if (column > column_count - 1) {
+            y++;
+            x = 0;
+            column = 0;
+        }
+    }
+    for (int i = 0; i < preview_file_array.entry_count; i++) {
+        int len = mbstowcs(wstr, preview_file_array.entry_pointers[i], NAME_MAX);
+        if (len == -1)
+            panic("Error: mbstowcs error when converting filename for rendering");
+        if (len > preview_longest_entry) {
+            len = preview_longest_entry;
+            wstr[len - 1] = L'.';
+            wstr[len - 2] = L'.';
+            wstr[len - 3] = L'.';
+        }
+        int color = 0;
+        wattron(preview_win, COLOR_PAIR(color));
+        mvwaddnwstr(preview_win, y, x, wstr, NAME_MAX);
+        wattroff(preview_win, COLOR_PAIR(color));
+
+        x += len + INTER_COLUMN_SPACING;
+        column++;
+        if (column > column_count - 1) {
+            y++;
+            x = 0;
+            column = 0;
+        }
+    }
 }
 
 void entry_search_loop() 
@@ -707,8 +772,9 @@ void entry_search_loop()
                 panic("Error: mbstowcs error when converting file name for preview");
             mvwaddwstr(preview_win, 0, 0, preview_file);
 
-            if (selected_index < current_ptrs->file_count + current_ptrs->dir_count) {
-                
+            if (selected_index < current_ptrs->dir_count) {
+                get_preview_dir_contents(current_ptrs->ptrs[selected_index], 50);
+                draw_previews();
             }
         }
 
