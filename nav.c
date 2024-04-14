@@ -434,7 +434,6 @@ void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
         }
         wattron(win, COLOR_PAIR(color));
         mvwaddnwstr(win, y, x, wstr, len);
-
         wattroff(win, COLOR_PAIR(color));
 
         x += longest_entry + INTER_COLUMN_SPACING;
@@ -488,6 +487,15 @@ void change_directory(char* dir)
 
 void get_preview_dir_contents(char* dirname, int n)
 {
+    preview_dir_array.entry_count = 0;
+    preview_file_array.entry_count = 0;
+    preview_longest_entry = 0;
+    
+    if (access(dirname, R_OK) != 0) {
+        add_entry("Insufficient permission to view directory", &preview_file_array, &preview_longest_entry);        
+        return;
+    }
+
     DIR *dir;
     struct dirent *ent;
     struct stat stat_buffer;
@@ -496,10 +504,6 @@ void get_preview_dir_contents(char* dirname, int n)
     if (dir == NULL) 
         panic("opendir() error");
 
-    preview_dir_array.entry_count = 0;
-    preview_file_array.entry_count = 0;
-    preview_longest_entry = 0;
-    
     char path[PATH_MAX];
     int len = strlcpy(path, dirname, NAME_MAX);
     path[len] = '/';
@@ -536,7 +540,7 @@ void get_preview_dir_contents(char* dirname, int n)
     qsort(preview_file_array.entry_pointers, preview_file_array.entry_count, sizeof(char*), compare_entries);
 }
 
-void draw_previews()
+void draw_preview_dir()
 {
     int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
     if (column_count <= 0) 
@@ -564,7 +568,7 @@ void draw_previews()
         mvwaddnwstr(preview_win, y, x, wstr, NAME_MAX);
         wattroff(preview_win, COLOR_PAIR(color));
 
-        x += len + INTER_COLUMN_SPACING;
+        x += preview_longest_entry + INTER_COLUMN_SPACING;
         column++;
         if (column > column_count - 1) {
             y++;
@@ -587,7 +591,7 @@ void draw_previews()
         mvwaddnwstr(preview_win, y, x, wstr, NAME_MAX);
         wattroff(preview_win, COLOR_PAIR(color));
 
-        x += len + INTER_COLUMN_SPACING;
+        x += preview_longest_entry + INTER_COLUMN_SPACING;
         column++;
         if (column > column_count - 1) {
             y++;
@@ -770,11 +774,14 @@ void entry_search_loop()
             wchar_t preview_file[NAME_MAX];
             if (!mbstowcs(preview_file, current_ptrs->ptrs[selected_index], NAME_MAX))
                 panic("Error: mbstowcs error when converting file name for preview");
+            int color = 3;
+            wattron(preview_win, COLOR_PAIR(color));
             mvwaddwstr(preview_win, 0, 0, preview_file);
+            wattroff(preview_win, COLOR_PAIR(color));
 
             if (selected_index < current_ptrs->dir_count) {
                 get_preview_dir_contents(current_ptrs->ptrs[selected_index], 50);
-                draw_previews();
+                draw_preview_dir();
             }
         }
 
