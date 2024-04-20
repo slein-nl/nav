@@ -52,6 +52,12 @@ typedef struct {
     char** ptrs;
 } entry_ptrs;
 
+typedef struct {
+    int size;
+    int max_size;
+    char* buffer;
+} file_preview_buffer;
+
 entry_array file_array = {
     .max_size = 512,
     .max_ptrs_size = 512,
@@ -133,16 +139,16 @@ void init()
     found_ptrs.ptrs = malloc(512);
     all_ptrs.ptrs = malloc(512);
 
-    if (file_array.entries == NULL ||
-        dir_array.entries == NULL ||
-        dir_array.entry_pointers == NULL ||
-        file_array.entry_pointers == NULL ||
-        preview_file_array.entries == NULL ||
+    if (file_array.entries                == NULL ||
+        dir_array.entries                 == NULL ||
+        dir_array.entry_pointers          == NULL ||
+        file_array.entry_pointers         == NULL ||
+        preview_file_array.entries        == NULL ||
         preview_file_array.entry_pointers == NULL ||
-        preview_dir_array.entries == NULL ||
-        preview_dir_array.entry_pointers == NULL ||
-        found_ptrs.ptrs == NULL ||
-        all_ptrs.ptrs == NULL) {
+        preview_dir_array.entries         == NULL ||
+        preview_dir_array.entry_pointers  == NULL ||
+        found_ptrs.ptrs                   == NULL ||
+        all_ptrs.ptrs                     == NULL) {
 
         panic("Error: Error when allocating memory");
     }
@@ -158,7 +164,7 @@ int compare_entries(const void* a, const void* b)
 int count_utf8_code_points(char* s) {
     int count = 0;
     while (*s) {
-        // add if byte not continuation byte
+        // count if byte not continuation byte
         count += (*s & 0xC0) != 0x80; 
         s++;
     }
@@ -246,7 +252,6 @@ void get_dir_contents(char* dirname)
     dir = opendir(dirname);
     if (dir == NULL) 
         panic("opendir() error");
-    
 
     dir_array.entry_count = 0;
     file_array.entry_count = 0;
@@ -417,6 +422,7 @@ void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
             wstr[len - 2] = L'.';
             wstr[len - 3] = L'.';
         }
+
         int color = 0;
         if (i < ptrs->dir_count) {
             if (selected_index == i) 
@@ -492,7 +498,7 @@ void get_preview_dir_contents(char* dirname, int n)
     preview_longest_entry = 0;
     
     if (access(dirname, R_OK) != 0) {
-        add_entry("Insufficient permission to view directory", &preview_file_array, &preview_longest_entry);        
+        add_entry("Insufficient permissions to view directory", &preview_file_array, &preview_longest_entry);        
         return;
     }
 
@@ -545,8 +551,8 @@ void draw_preview_dir()
     int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
     if (column_count <= 0) 
         column_count = 1;
-    static wchar_t wstr[NAME_MAX + 1];
 
+    static wchar_t wstr[NAME_MAX + 1];
     int column = 0;
     int x = 0;
     int y = 1;
@@ -597,6 +603,52 @@ void draw_preview_dir()
             y++;
             x = 0;
             column = 0;
+        }
+    }
+}
+
+void draw_text_preview(char* filename, int lines)
+{
+    FILE* f;
+    if (!(f = fopen(filename, "r"))) {
+        panic("Error: Failed to open file for preview");
+    }
+
+    bool line_written = false;
+    char read_buffer[4096];
+    wchar_t write_buffer[preview_winx];
+    wchar_t big_write_buffer[4096];
+    int written_lines = 0;
+    while (fgets(read_buffer, 4096, f) != NULL && written_lines != lines) {
+        int start_index = 0; 
+        int end_index = 0; 
+        int n_code_points = 0;
+        while (end_index < 4096 && written_lines != lines) {
+            if (read_buffer[end_index] == '\0')
+                break;
+            n_code_points += (read_buffer[end_index] & 0xC0) != 0x80; 
+            if (read_buffer[end_index] == '\n') {
+                if (!line_written) {
+                    int n;
+                    if (n_code_points > preview_winx)
+                        n = preview_winx;
+                    else 
+                        n = n_code_points;
+                    mbstowcs(&write_buffer[start_index], read_buffer, n);
+                    mvwaddwstr(preview_win, written_lines + 1, 0, write_buffer);
+                    written_lines++;
+                    line_written = false;
+                }
+                n_code_points = 0;
+                start_index = end_index + 1;
+            }
+            if (n_code_points >= preview_winx && (read_buffer[end_index] & 0xC0) != 0x80) {
+                mbstowcs(&write_buffer[start_index], read_buffer, preview_winx);
+                mvwaddwstr(preview_win, written_lines + 1, 0, write_buffer);
+                written_lines++;
+                line_written = true;
+            }
+            end_index++;
         }
     }
 }
@@ -765,10 +817,6 @@ void entry_search_loop()
         mvwaddstr(win, 2, 0, current_path);
         wattroff(win, COLOR_PAIR(4));
 
-        TIME_END(win, start_time);
-
-        mvwaddstr(win, 1, 0, user_msg);
-
         if (preview_win) {
             werase(preview_win);
             wchar_t preview_file[NAME_MAX];
@@ -783,8 +831,13 @@ void entry_search_loop()
                 get_preview_dir_contents(current_ptrs->ptrs[selected_index], 50);
                 draw_preview_dir();
             }
+            else {
+                draw_text_preview(current_ptrs->ptrs[selected_index], preview_winy - 1);
+            }
         }
 
+        TIME_END(win, start_time);
+        mvwaddstr(win, 1, 0, user_msg);
         wmove(win, 0, cursor_index);
         refresh();
         if (preview_win)
