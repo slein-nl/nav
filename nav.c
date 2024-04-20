@@ -611,46 +611,34 @@ void draw_text_preview(char* filename, int lines)
 {
     FILE* f;
     if (!(f = fopen(filename, "r"))) {
-        panic("Error: Failed to open file for preview");
+        mvwaddstr(preview_win, 1, 0, "Error: unable to read file");
+        return;
     }
 
-    bool line_written = false;
-    char read_buffer[4096];
-    wchar_t write_buffer[preview_winx];
-    wchar_t big_write_buffer[4096];
+    char read_buffer[preview_winx + 1];
+    wchar_t write_buffer[preview_winx + 1];
     int written_lines = 0;
-    while (fgets(read_buffer, 4096, f) != NULL && written_lines != lines) {
-        int start_index = 0; 
-        int end_index = 0; 
-        int n_code_points = 0;
-        while (end_index < 4096 && written_lines != lines) {
-            if (read_buffer[end_index] == '\0')
-                break;
-            n_code_points += (read_buffer[end_index] & 0xC0) != 0x80; 
-            if (read_buffer[end_index] == '\n') {
-                if (!line_written) {
-                    int n;
-                    if (n_code_points > preview_winx)
-                        n = preview_winx;
-                    else 
-                        n = n_code_points;
-                    mbstowcs(&write_buffer[start_index], read_buffer, n);
-                    mvwaddwstr(preview_win, written_lines + 1, 0, write_buffer);
-                    written_lines++;
-                    line_written = false;
-                }
-                n_code_points = 0;
-                start_index = end_index + 1;
-            }
-            if (n_code_points >= preview_winx && (read_buffer[end_index] & 0xC0) != 0x80) {
-                mbstowcs(&write_buffer[start_index], read_buffer, preview_winx);
-                mvwaddwstr(preview_win, written_lines + 1, 0, write_buffer);
-                written_lines++;
-                line_written = true;
-            }
-            end_index++;
+    bool incomplete_line = false;
+    while (fgets(read_buffer, preview_winx + 1, f) != NULL && written_lines != lines) {
+        // if line is incomplete, discard until next line
+        if (strchr(read_buffer, '\n') == NULL && !feof(f)) {
+            if (incomplete_line)
+                continue;
+            incomplete_line = true;
         }
+        else {
+            if (incomplete_line) {
+                incomplete_line = false;
+                continue;
+            }
+        }
+        
+        mbstowcs(write_buffer, read_buffer, preview_winx);
+        mvwaddnwstr(preview_win, written_lines + 1, 0, write_buffer, preview_winx);
+        written_lines++;
     }
+
+    fclose(f);
 }
 
 void entry_search_loop() 
@@ -870,6 +858,8 @@ int main(int argc, char *argv[])
     start_color();
     use_default_colors();
     init_color(COLOR_BLUE, 236, 568, 936);
+    init_color(COLOR_MAGENTA, 856, 448, 856);
+    init_color(COLOR_GREEN, 140, 836, 556);
     init_pair(1, COLOR_BLACK, COLOR_WHITE);
     init_pair(2, COLOR_BLUE, -1);
     init_pair(3, COLOR_MAGENTA, -1);
