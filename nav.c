@@ -548,7 +548,7 @@ void get_preview_dir_contents(char* dirname, int n)
 
 void draw_preview_dir()
 {
-    int column_count = winx / (longest_entry + INTER_COLUMN_SPACING);
+    int column_count = preview_winx / (preview_longest_entry + INTER_COLUMN_SPACING);
     if (column_count <= 0) 
         column_count = 1;
 
