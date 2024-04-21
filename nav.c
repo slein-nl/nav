@@ -552,6 +552,7 @@ void draw_preview_dir()
     if (column_count <= 0) 
         column_count = 1;
 
+    int total_entries = (preview_winx - 1) * column_count; 
     static wchar_t wstr[NAME_MAX + 1];
     int column = 0;
     int x = 0;
@@ -581,6 +582,8 @@ void draw_preview_dir()
             x = 0;
             column = 0;
         }
+        if (--total_entries == 0)
+            return;
     }
     for (int i = 0; i < preview_file_array.entry_count; i++) {
         int len = mbstowcs(wstr, preview_file_array.entry_pointers[i], NAME_MAX);
@@ -604,6 +607,8 @@ void draw_preview_dir()
             x = 0;
             column = 0;
         }
+        if (--total_entries == 0)
+            return;
     }
 }
 
@@ -816,7 +821,7 @@ void entry_search_loop()
             wattroff(preview_win, COLOR_PAIR(color));
 
             if (selected_index < current_ptrs->dir_count) {
-                get_preview_dir_contents(current_ptrs->ptrs[selected_index], 50);
+                get_preview_dir_contents(current_ptrs->ptrs[selected_index], 100);
                 draw_preview_dir();
             }
             else {
