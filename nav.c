@@ -616,7 +616,10 @@ void draw_text_preview(char* filename, int lines)
 {
     FILE* f;
     if (!(f = fopen(filename, "r"))) {
-        mvwaddstr(preview_win, 1, 0, "Error: unable to read file");
+        if (access(filename, R_OK) == 0) 
+            mvwaddstr(preview_win, 1, 0, "Error: unable to read file");
+        else 
+            mvwaddstr(preview_win, 1, 0, "Error: Insufficient permissions to read file");
         return;
     }
 
