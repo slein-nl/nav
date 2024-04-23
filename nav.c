@@ -302,11 +302,11 @@ void get_dir_contents(char* dirname)
 
 void make_windows() 
 {
-    float vertical_margin_factor = 0.05;
+    float vertical_margin_factor = 0.09;
     getmaxyx(stdscr, termy, termx);
-    if (termy > 25) {
+    if (termy > 20) {
         winx = termx * 0.8;
-        winy = termy * 0.65;
+        winy = termy * 0.69;
         preview_winx = termx * 0.8;
         preview_winy = (winy + (termy * vertical_margin_factor)) - (termy * vertical_margin_factor);
         int preview_startx = (termx - winx) / 2;
@@ -484,10 +484,11 @@ void change_directory(char* dir)
         get_dir_contents(current_path);
     }
     else {
-        if (access(dir, R_OK) == 0) 
-            panic("Error: chdir() error");
-        else
+        if (access(dir, R_OK) == -1) 
             error("Error: Unable to enter directory due to insufficient permissions");
+        else
+            panic("Error: chdir() error");
+
     }
 }
 
@@ -570,7 +571,6 @@ void draw_preview_dir()
         int color = 2;
         wstr[len] = L'/';
         wstr[len + 1] = L'\0';
-        len++;
         wattron(preview_win, COLOR_PAIR(color));
         mvwaddnwstr(preview_win, y, x, wstr, NAME_MAX);
         wattroff(preview_win, COLOR_PAIR(color));
@@ -616,10 +616,10 @@ void draw_text_preview(char* filename, int lines)
 {
     FILE* f;
     if (!(f = fopen(filename, "r"))) {
-        if (access(filename, R_OK) == 0) 
-            mvwaddstr(preview_win, 1, 0, "Error: unable to read file");
-        else 
+        if (access(filename, R_OK) == -1) 
             mvwaddstr(preview_win, 1, 0, "Error: Insufficient permissions to read file");
+        else 
+            mvwaddstr(preview_win, 1, 0, "Error: unable to read file");
         return;
     }
 
