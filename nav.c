@@ -306,7 +306,7 @@ void make_windows()
     getmaxyx(stdscr, termy, termx);
     if (termy > 20) {
         winx = termx * 0.8;
-        winy = termy * 0.65;
+        winy = termy * 0.60;
         preview_winx = termx * 0.8;
         preview_winy = (winy + (termy * vertical_margin_factor)) - (termy * vertical_margin_factor);
         int preview_startx = (termx - winx) / 2;
