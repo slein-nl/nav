@@ -692,6 +692,9 @@ void entry_search_loop()
             case KEY_UP:
                 change_directory("..");
                 selected_index = 0;
+                searchstring[0] = L'\0';
+                cursor_index = 0;
+                end_index = 0;
                 break;
 
             case KEY_LEFT:
