@@ -488,7 +488,6 @@ void change_directory(char* dir)
             error("Error: Unable to enter directory due to insufficient permissions");
         else
             panic("Error: chdir() error");
-
     }
 }
 
@@ -692,6 +691,7 @@ void entry_search_loop()
 
             case KEY_UP:
                 change_directory("..");
+                selected_index = 0;
                 break;
 
             case KEY_LEFT:
