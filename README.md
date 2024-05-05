@@ -1,4 +1,4 @@
-# Nav 
+# nav 
 **Efficiently navigate the filesystem in the terminal with the power of typing!**
 
 https://github.com/slein-nl/nav/assets/13536345/23b38b11-0635-4cd8-b6b3-e0c492727503
@@ -31,7 +31,6 @@ function n() {
     fi
     rm -f -- "$tmp"
 }
-
 ```
 
 ## Building
