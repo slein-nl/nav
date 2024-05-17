@@ -18,7 +18,7 @@
 #include <fcntl.h>
 
 #ifdef TIME_MEASUREMENT
-#define TIME_START(start_time) clock_t start_time = clock()
+#define TIME_START(start_time) start_time = clock()
 #define TIME_END(win, start_time) do { \
     clock_t end_time = clock(); \
     double elapsed_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC; \
@@ -110,6 +110,7 @@ int winy;
 int preview_winx;
 int preview_winy;
 int preview_longest_entry;
+clock_t start_time;
 
 void panic(char* error_msg) 
 {
@@ -656,11 +657,15 @@ void entry_search_loop()
     uint32_t end_index = 0;
     uint32_t selected_index = 1;
     entry_ptrs* current_ptrs = &all_ptrs;
+    bool first_iter = true;
     
     get_dir_contents(current_path);
 
     while (true) {
-        TIME_START(start_time);
+        if (!first_iter) 
+            TIME_START(start_time);
+        else 
+            first_iter = false;
         
         switch (c) {
             case KEY_ESCAPE:
