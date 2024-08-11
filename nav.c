@@ -33,6 +33,7 @@
 #define INTER_COLUMN_SPACING 2
 #define KEY_ESCAPE 27
 #define KEY_CTRL_U 0x15
+#define KEY_CTRL_W 0x17
 #define KEY_CTRL_D 0x04
 #define KEY_TAB 0x09
 
@@ -762,6 +763,21 @@ void entry_search_loop()
                 else 
                     selected_index = current_ptrs->dir_count + current_ptrs->file_count - 1;
                 break;
+
+            case KEY_CTRL_W:
+                if (cursor_index > 0) {
+                    int prev = searchstring[--cursor_index];
+                    int deleted = 1;
+                    while ((cursor_index > 0 && searchstring[cursor_index - 1] != ' ')
+                        || (cursor_index > 0 && searchstring[cursor_index - 1] == ' ' && prev == ' ')) {
+                        prev = searchstring[cursor_index - 1];
+                        cursor_index--;
+                        deleted++;
+                    }
+                    memmove(&searchstring[cursor_index], &searchstring[cursor_index + deleted], (end_index - cursor_index - deleted) * sizeof(wchar_t));
+                    end_index -= deleted;
+                    searchstring[end_index] = '\0';
+                }
 
             case KEY_BACKSPACE:
             case 127:
