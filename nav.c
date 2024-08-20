@@ -661,6 +661,9 @@ void entry_search_loop()
     bool first_iter = true;
     
     get_dir_contents(current_path);
+    selected_index = 1;
+    if (dir_array.entry_count == 1 && file_array.entry_count == 0)
+        selected_index = 0;
 
     while (true) {
         if (!first_iter) 
@@ -739,8 +742,13 @@ void entry_search_loop()
             case KEY_DOWN:
                 if (selected_index < current_ptrs->dir_count) {
                     change_directory(current_ptrs->ptrs[selected_index]);
-                    if (dir_array.entry_count + file_array.entry_count <= selected_index)
-                        selected_index = 0;
+
+                    if (selected_index != 0) {
+                        selected_index = 1;
+                        if (dir_array.entry_count == 1 && file_array.entry_count == 0)
+                            selected_index = 0;
+                    }
+
                     cursor_index = 0;
                     end_index = 0;
                     searchstring[0] = '\0';
@@ -824,14 +832,11 @@ void entry_search_loop()
         if (end_index != 0) {
             current_ptrs = &found_ptrs;
             search_entries(searchstring);
-            if (selected_index > found_ptrs.dir_count + found_ptrs.file_count)
-                selected_index = 0;
-            draw_entries(selected_index, current_ptrs);
         }
         else {
             current_ptrs = &all_ptrs;
-            draw_entries(selected_index, current_ptrs);  
         } 
+        draw_entries(selected_index, current_ptrs);  
         
         wattron(win, COLOR_PAIR(4));
         mvwaddstr(win, 2, 0, current_path);
