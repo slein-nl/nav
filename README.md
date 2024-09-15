@@ -35,14 +35,14 @@ function n() {
 
 ## Building
 To install:
-```
+```bash
 sudo make release install
 ```
 To make debug build:
-```
+```bash
 make debug 
 ```
 you can also compile with time measurements by adding TIME=1 to the command, for example:
-```
+```bash
 sudo make release TIME=1
 ```
