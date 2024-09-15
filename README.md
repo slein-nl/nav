@@ -18,7 +18,7 @@ esc        - exit and change directory*
 
 ## cd on exit wrapper
 add this to your bashrc/zshrc and launch nav with "n" to enable in-shell cd on exit
-```
+```bash
 function n() {
     local tmp="$(mktemp -t "navcd.XXXXX")"
     nav "$@" --cd="$tmp"
