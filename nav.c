@@ -261,8 +261,11 @@ void get_dir_contents(char* dirname)
     found_ptrs.dir_count = 0;
     longest_entry = 0;
     
+    add_entry("..", &dir_array, &longest_entry);
     while ((ent = readdir(dir)) != NULL) {
         if (!strcmp(ent->d_name, "."))
+            continue;
+        if (!strcmp(ent->d_name, ".."))
             continue;
         if (ent->d_type == DT_DIR) {
             add_entry(ent->d_name, &dir_array, &longest_entry);
@@ -304,6 +307,14 @@ void get_dir_contents(char* dirname)
 
 void make_windows() 
 {
+    if (win != NULL) {
+        delwin(win);
+        win = NULL;
+    }
+    if (preview_win != NULL) {
+        delwin(preview_win);
+        preview_win = NULL;
+    }
     float vertical_margin_factor = 0.09;
     getmaxyx(stdscr, termy, termx);
     if (termy > 20) {
@@ -394,9 +405,13 @@ void draw_entries(uint32_t selected_index, entry_ptrs* ptrs)
     if (column_count <= 0) 
         column_count = 1;
     entries_per_page = (column_count * (winy - 3));
-    int current_page = selected_index / entries_per_page;
-    int total_page_count = (ptrs->dir_count + ptrs->file_count) / entries_per_page;
-    if ((ptrs->dir_count + ptrs->file_count) % entries_per_page != 0)
+    int current_page = 0;
+    if (entries_per_page != 0 && selected_index != 0)
+        current_page = selected_index / entries_per_page;
+    int total_page_count = 0;
+    if (entries_per_page != 0 && (ptrs->dir_count + ptrs->file_count != 0))
+         total_page_count = (ptrs->dir_count + ptrs->file_count) / entries_per_page;
+    if (entries_per_page != 0 && (ptrs->dir_count + ptrs->file_count) % entries_per_page != 0)
         total_page_count++;
     if (total_page_count == 0)
         total_page_count = 1;
@@ -629,7 +644,7 @@ void draw_text_preview(char* filename, int lines)
     int written_lines = 0;
     bool incomplete_line = false;
     while (fgets(read_buffer, preview_winx + 1, f) != NULL && written_lines != lines) {
-        // if line is incomplete, discard until next line
+        // if line larger than available space, discard until next line
         if (strchr(read_buffer, '\n') == NULL && !feof(f)) {
             if (incomplete_line)
                 continue;
@@ -666,10 +681,10 @@ void entry_search_loop()
         selected_index = 0;
 
     while (true) {
-        if (!first_iter) 
-            TIME_START(start_time);
-        else 
+        if (first_iter) 
             first_iter = false;
+        else 
+            TIME_START(start_time);
         
         switch (c) {
             case KEY_ESCAPE:
@@ -691,11 +706,7 @@ void entry_search_loop()
 
             case KEY_RESIZE:
                 clear();
-                delwin(win);
-                delwin(preview_win);
-                refresh();
                 make_windows();
-                wrefresh(win);
                 break;
 
             case KEY_UP:
@@ -839,7 +850,7 @@ void entry_search_loop()
         draw_entries(selected_index, current_ptrs);  
         
         wattron(win, COLOR_PAIR(4));
-        mvwaddstr(win, 2, 0, current_path);
+        mvwaddnstr(win, 2, 0, current_path, winx);
         wattroff(win, COLOR_PAIR(4));
 
         if (preview_win) {
