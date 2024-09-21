@@ -125,6 +125,16 @@ inline void error(char* error_msg)
     snprintf(user_msg, 256, "%s", error_msg);
 }
 
+size_t strlcpy(char *dst, const char *src, size_t dstsize) {
+    size_t srclen = strlen(src);
+    size_t copylen = (srclen >= dstsize) ? dstsize - 1 : srclen;
+    if (dstsize > 0) {
+        memcpy(dst, src, copylen);
+        dst[copylen] = '\0';
+    }
+    return srclen;
+}
+
 void init()
 {
     user_shell = getenv("SHELL");
@@ -711,7 +721,8 @@ void entry_search_loop()
 
             case KEY_UP:
                 change_directory("..");
-                selected_index = 0;
+                if (selected_index > 1) 
+                    selected_index = 1;
                 searchstring[0] = L'\0';
                 cursor_index = 0;
                 end_index = 0;
