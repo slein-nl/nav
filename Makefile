@@ -34,5 +34,5 @@ $(BUILD_DIR)/$(TARGET): $(OBJ_FILES)
 $(BUILD_DIR)/$(TARGET)_debug: $(OBJ_FILES)
 	$(CC) $(CFLAGS) -g $(LDFLAGS) $^ -o $@
 
-$(BUILD_DIR)/%.o: %.c
+$(BUILD_DIR)/%.o: %.c | build_dir
 	$(CC) $(CFLAGS) -c $< -o $@
